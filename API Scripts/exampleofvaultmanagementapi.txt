@@ -1,0 +1,45 @@
+#Sync Vault
+
+curl --request POST http://localhost:3000/sync
+
+
+#adding a folder named "My Folder"
+
+curl --header "Content-Type: application/json" \
+  --request POST \
+  --data '{"name": "My Folder"}' \
+  http://localhost:3000/object/folder
+  
+
+#list of all folders
+  
+curl --request GET http://localhost:3000/list/object/folders  
+
+
+#list of all items
+  
+curl --request GET http://localhost:3000/list/object/items
+
+
+#Move an item to a folder. folderId = fb30266f-2378-4027-bbbc-aea70059dd41
+
+curl --header "Content-Type: application/json" \
+  --request PUT \
+  --data '{"organizationId":null,"folderId":"fb30266f-2378-4027-bbbc-aea70059dd41","type":1,"reprompt":0,"name":"test1","notes":null,"favorite":false,"login":{"username":"test1","password":"123","totp":null,"passwordRevisionDate":null},"collectionIds":[]}' \
+  http://localhost:3000/object/item/ba96208a-ba58-4e3c-b2c8-aea7005ac463
+  
+  
+#change item to another folder  f51eea70-b0e6-4f61-8289-aea7005ce008
+
+curl --header "Content-Type: application/json" \
+  --request PUT \
+  --data '{"organizationId":null,"folderId":"f51eea70-b0e6-4f61-8289-aea7005ce008","type":1,"reprompt":0,"name":"test1","notes":null,"favorite":false,"login":{"username":"test1","password":"123","totp":null,"passwordRevisionDate":null},"collectionIds":[]}' \
+  http://localhost:3000/object/item/ba96208a-ba58-4e3c-b2c8-aea7005ac463
+
+#add attachment to an item
+
+curl -X 'POST' \
+  'http://192.168.1.8:8087/attachment?itemid=1afd0528-9206-4e51-8aae-ae32005b5655' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@testadd.txt'
