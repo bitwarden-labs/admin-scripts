@@ -1,9 +1,9 @@
-
-client_id='organization.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-client_secret='yourclientsecret'
+## Script downloads Bitwarden Vault Event Logs
+org_client_id='organization.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+org_client_secret='xxxxxxxxxxxxxxxxxxxxxx'
 scope='api.organization'
 grant_type='client_credentials'
-vault_uri='https://your.vault.uri'
+vault_uri='https://vault.bitwarden.com'
 
   #!/bin/bash
 
