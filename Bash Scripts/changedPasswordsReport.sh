@@ -1,0 +1,1 @@
+bw list items | jq -r '.[] | "\(.login.passwordRevisionDate),\"\(.login.username)\",\"\(.name)\""' | sort -r | tee changedPasswordsReport.csv
