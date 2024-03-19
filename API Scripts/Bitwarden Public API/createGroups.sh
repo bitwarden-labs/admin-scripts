@@ -1,6 +1,6 @@
 ## Script downloads Bitwarden Vault Event Logs
-org_client_id='organization.dd8bd639-992a-4136-b7c4-afd20107566a'
-org_client_secret='J78jV4537sJUtrJ17lAcrkic6MJh0m'
+org_client_id='organization.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+org_client_secret='xxxxxxxxxxxxxxxxxxxxxx'
 scope='api.organization'
 grant_type='client_credentials'
 vault_uri='https://vault.bitwarden.com'
