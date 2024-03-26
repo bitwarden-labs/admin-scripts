@@ -53,13 +53,26 @@ def update_items_notes():
         item_notes = item.get('notes', '')
         if item_notes is not None:
           item_notes += '\nCollections: ' + ', '.join(collection_names)
-          item['notes'] = item_notes
         else:
           item_notes = '\nCollections: ' + ', ' + str(collection_names)
 
-      # subprocess.run(bw + ['edit', ])
+        # Write new notes to item
+        item['notes'] = item_notes
+        item_json = json.dumps(item)
 
-      return items_data
+        # Produce encoded json of modified item
+        encodedJson = subprocess.run(bw + ['encode'], input=item_json, capture_output=True, text=True)
+        if encodedJson.returncode == 0:
+          encodedJson = encodedJson.stdout.strip()
+        else:
+          print("Error encoding JSON:", encodedJson.stderr)
+
+        # Write modified item back to vault
+        edit_item = subprocess.run(bw + ['edit', 'item', item_id, encodedJson], capture_output=True, text=True)
+        if edit_item.returncode == 0:
+          print(f"Updated {item['name']}")
+        else:
+          print(f"Error editing {item['name']}:", edit_item.stderr)
 
     except json.JSONDecodeError:
       print("Error: Unable to decode items data")
