@@ -9,7 +9,7 @@ import subprocess
 session_key = input(
     "Input session key: "
 )  # bw session key - https://bitwarden.com/help/cli/#using-a-session-key
-
+# 1e0e131d-f610-4798-86cc-aed10109190e
 # The org_id can be obtained with `bw list organizations --pretty` run from the bw CLI tool (https://bitwarden.com/help/cli/#list)
 # org_id = "" # For use with a hardcoded Org ID
 org_id = input("Input Org ID: ")  # To input the Org ID interactively
@@ -42,7 +42,7 @@ def get_collection_data():
 
 
 # Add each collection item is present in to item notes field
-def update_items_notes():
+def update_items_notes(org_collections):
     # Get all Vault Items
     items_output = subprocess.run(
         bw + ["list", "items"], capture_output=True, text=True
@@ -106,4 +106,4 @@ def update_items_notes():
 
 
 org_collections = get_collection_data()
-org_items_processed = update_items_notes()
+org_items_processed = update_items_notes(org_collections)
