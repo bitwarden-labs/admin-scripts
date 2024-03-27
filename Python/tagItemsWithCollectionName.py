@@ -9,7 +9,7 @@ import subprocess
 session_key = input(
     "Input session key: "
 )  # bw session key - https://bitwarden.com/help/cli/#using-a-session-key
-# 1e0e131d-f610-4798-86cc-aed10109190e
+
 # The org_id can be obtained with `bw list organizations --pretty` run from the bw CLI tool (https://bitwarden.com/help/cli/#list)
 # org_id = "" # For use with a hardcoded Org ID
 org_id = input("Input Org ID: ")  # To input the Org ID interactively
