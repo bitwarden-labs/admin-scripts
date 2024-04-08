@@ -16,6 +16,26 @@ Here you will find a variety of Bash, Powershell and Python script examples that
 
 
 
+## Commonly Used Scripts Examples
+
+### Collection Permission Inheritance
+[Inherit Parent Permissions (CLI/Bash)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Bash%20Scripts/inheritparentpermissions.sh)
+
+
+### Confirm Accepted Users
+[Password Manager: Confirm All Accepted Users (CLI/Bash)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Bash%20Scripts/bwConfirmAcceptedPeople.sh)<br>
+[Password Manager: Confirm All Accepted Users (CLI/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Powershell/bwConfirmAcceptedPeople.ps1)<br>
+[Password Manager: Confirm All Accepted Users (API/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/API%20Scripts/Bitwarden%20Public%20API/bwConfirmAccepted-api.ps1)<br>
+[Password Manager: Confirm All Accepted Users with Password (CLI/Bash)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Bash%20Scripts/bwConfirmAcceptedPeopleWPass.sh)<br>
+[Secrets Manager: Confirmed All Accepted Users (CLI/Bash)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Bash%20Scripts/bwConfirmAcceptedPeopleSM.sh)<br>
+[Secrets Manager: Confirmed All Accepted Users (CLI/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Powershell/bwConfirmAcceptedPeopleSM.ps1)
+
+### List Organization Members
+[List All Organization Members (CLI/Bash)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Bash%20Scripts/listmembers.sh)<Br>
+[List All Organization Members (CLI/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Powershell/ListMembers.ps1)<Br>
+[List ALl Organization Members w/ 2FA Check (CLI/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Powershell/ListMembers2FACheck.ps1)
+
+
 
 ## Disclaimer
 Please note that the projects in Bitwarden Labs are experimental and not officially supported by Bitwarden. They are provided "as is" with no guarantees.
