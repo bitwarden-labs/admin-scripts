@@ -4,7 +4,7 @@ Here you will find a variety of Bash, Powershell and Python script examples that
 
 ***Important things to note:***
 - Admin Scripts are currently divided into separate folders by type: _API Scripts, Bash, Powershell, and Python_
-- Admin scripts are meant to act as examples. They are not written in a way that can be run as is and so will require at least some modifcations/insertions
+- Admin scripts are meant to act as ***examples***. They are not written in a way that can be run as is and so will require at least some modifications/insertions
 - Most scripts contain commented instructions, so please read through thoroughly/carefully
 
 *Additional documenation to help you get started:*<br>
