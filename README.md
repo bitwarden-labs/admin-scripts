@@ -17,21 +17,21 @@ Here you will find a variety of Bash, Powershell and Python script examples that
 ## Commonly Used Scripts Examples
 
 ### Collection Permission Inheritance
-- [Inherit Parent Permissions (CLI/Bash)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Bash%20Scripts/inheritparentpermissions.sh)
+- [Inherit Parent Permissions (CLI/Bash)](Bash%20Scripts/inheritParentPermissions.sh)
 
 
 ### Confirm Accepted Users
 
-- [Password Manager: Confirm All Accepted Users (CLI/Bash)](Bash%20Scripts/bwConfirmAcceptedPeople.sh)
-- [Password Manager: Confirm All Accepted Users (CLI/Powershell)](Powershell/bwConfirmAcceptedPeople.ps1)
-- [Password Manager: Confirm All Accepted Users (API/Powershell)](API%20Scripts/Bitwarden%20Public%20API/bwConfirmAccepted-api.ps1)
-- [Password Manager: Confirm All Accepted Users with Password (CLI/Bash)](Bash%20Scripts/bwConfirmAcceptedPeopleWPass.sh)
-- [Secrets Manager: Confirmed All Accepted Users (CLI/Bash)](Bash%20Scripts/bwConfirmAcceptedPeopleSM.sh)
-- [Secrets Manager: Confirmed All Accepted Users (CLI/Powershell)](Powershell/bwConfirmAcceptedPeopleSM.ps1)
+- [Password Manager: Confirm All Accepted Users (CLI/Bash)](Bash%20Scripts/confirmAcceptedPeople.sh)
+- [Password Manager: Confirm All Accepted Users (CLI/Powershell)](Powershell/confirmAcceptedPeople.ps1)
+- [Password Manager: Confirm All Accepted Users (API/Powershell)](API%20Scripts/Bitwarden%20Public%20API/confirmAccepted-api.ps1)
+- [Password Manager: Confirm All Accepted Users with Password (CLI/Bash)](Bash%20Scripts/confirmAcceptedPeopleWPass.sh)
+- [Secrets Manager: Confirmed All Accepted Users (CLI/Bash)](Bash%20Scripts/confirmAcceptedPeopleSM.sh)
+- [Secrets Manager: Confirmed All Accepted Users (CLI/Powershell)](Powershell/confirmAcceptedPeopleSM.ps1)
 
 ### List Organization Members
 
-- [List All Organization Members (CLI/Bash)](Bash%20Scripts/listmembers.sh)<Br>
+- [List All Organization Members (CLI/Bash)](Bash%20Scripts/listMembers.sh)<Br>
 - [List All Organization Members (CLI/Powershell)](Powershell/ListMembers.ps1)<Br>
 - [List ALl Organization Members w/ 2FA Check (CLI/Powershell)](Powershell/ListMembers2FACheck.ps1)
 
