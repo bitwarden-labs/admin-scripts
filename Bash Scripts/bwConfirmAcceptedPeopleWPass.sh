@@ -1,5 +1,13 @@
 #!/bin/bash
-#Requires .p0 file which should consist of the user account password in base64. You can create a temp file with the clear text password and then process it using `base64 clearTextFile > .p0`. Make sure to delete the temp file after creating the .p0 file. The .p0 file should be owned and locked down by a unique account that is only utilized to run this script.
+
+# This script leverages the bw cli and jq to confirm new users to an organization.
+# jq is required in $PATH https://stedolan.github.io/jq/download/
+# bw is required in $PATH and logged in https://bitwarden.com/help/cli/
+
+# Requires .p0 file which should consist of the user account password in base64. 
+# You can create a temp file with the clear text password and then process it using `base64 clearTextFile > .p0`. 
+# Make sure to delete the temp file after creating the .p0 file. 
+# The .p0 file should be owned and locked down by a unique account that is only utilized to run this script.
 
 organization_id="b9c70d44-2615-4c84-9913-ac330139c9eb"
 file=/home/bitwarden/.p0
