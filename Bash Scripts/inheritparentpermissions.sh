@@ -56,7 +56,7 @@ parents=$(bw --session "$session" list org-collections \
     --organizationid "$organization_id" | jq -r '.[].name' | grep \/ | cut -f1 -d\/ | uniq)
 
 # Loop through parents
-for p in $parents; do
+for p in "${parents[@]}"; do
     echo "Processing parent: $p"
 
     # Get Parent ID and permissions
