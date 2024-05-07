@@ -77,7 +77,7 @@ for p in "${parents[@]}"; do
             cut -f$((d+1)) -d\/ | uniq)
 
         # Process children
-        for c in $children; do
+        for c in "${children[@]}"; do
             echo "Updating child: $c under $p"
             c_id=$(bw --session "$session" list org-collections \
                 --organizationid "$organization_id" | jq -r --arg p "$p" '.[] | select(.name | contains($p)) | {name, id}' | \
