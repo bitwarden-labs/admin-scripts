@@ -1368,6 +1368,59 @@ def migrate_group_members_bw_to_bw():
     print("Importing data to destination server...")
     migrate_groups_members(dest_bw_api_endpoint, dest_access_token, groups_members_dict)
 
+def update_collection_ext_id(f_bw_cli_session, f_dest_bw_org_id, f_coll_list):
+    #Convert collection from list to dictionary.
+    #Collection name as key, external ID as value
+
+    coll_name_extid = {}
+    for each_col in f_coll_list:
+        coll_name_extid[each_col["name"]] = each_col["externalId"]
+    dest_coll_list = load_collection_list_cli(f_dest_bw_org_id, f_bw_cli_session)
+
+    if len(dest_coll_list) == 0:
+        print("Exiting. Empty collection list on destination or CLI failed")
+        sys.exit(1)    
+    for each_col in dest_coll_list:
+        dest_coll_details = load_collection_details_cli(f_dest_bw_org_id, each_col["id"], f_bw_cli_session)
+        if dest_coll_details["name"] in coll_name_extid:
+            if coll_name_extid[each_col["name"]] is not None:
+                dest_coll_details["externalId"] = coll_name_extid[dest_coll_details["name"]]
+                update_collection_cli(f_bw_cli_session, dest_coll_details["name"], dest_coll_details["id"], dest_coll_details, f_dest_bw_org_id)
+
+
+def migrate_col_ext_id_bw_to_bw():
+    global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password
+    global dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password
+    global bw_org_id, dest_bw_org_id
+
+    initial_environment_check()
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
+
+    # #read password from file for development only
+    # with open("source_pass.txt", 'r') as file:
+    #   bw_acc_password = file.read()
+    # with open("destination_pass.txt", 'r') as file:
+    #   dest_bw_acc_password = file.read()
+
+    # bw_acc_password = bw_acc_password.strip()
+    # dest_bw_acc_password = dest_bw_acc_password.strip()
+
+    bw_cli_session = login_on_cli(bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password)
+
+    print("Getting collection list from source server...")
+    coll_list = load_collection_list_cli(bw_org_id, bw_cli_session)
+
+    if len(coll_list) == 0:
+        print("Exiting. Empty collection list from source")
+        sys.exit(1)
+
+    print("Updating collection on destination server...")    
+    dest_bw_cli_session = login_on_cli(dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password)
+
+    update_collection_ext_id(dest_bw_cli_session, dest_bw_org_id, coll_list)
+
+
 def do_diff_users(f_access_token, f_dest_access_token):
 
     member_details_list = load_users_details_from_api( bw_api_endpoint, f_access_token)
@@ -1555,6 +1608,7 @@ def print_help():
     sys.stdout.write("%-20s %-50s\n" % ("migratebw","To migrate from one Bitwarden server to another server"))
     sys.stdout.write("%-20s %-50s\n" % ("migratebwusers","To migrate individualusers collection permission from one Bitwarden server to another server"))
     sys.stdout.write("%-20s %-50s\n" % ("migrategroupmembers","To migrate group membership from one Bitwarden server to another server"))
+    sys.stdout.write("%-20s %-50s\n" % ("migratecolextid","To migrate External ID of collections from one Bitwarden server to another server"))
     sys.stdout.write("%-20s %-50s\n" % ("diffbw","To compare collections, groups, and members between 2 organizations"))
     sys.stdout.write("%-20s %-50s\n" % ("migrate1p","To migrate vault permissions from 1Password"))
     sys.stdout.write("%-20s %-50s\n" % ("migratelp","To migrate shared folder permissions from Lastpass"))
@@ -1714,7 +1768,9 @@ def load_configfile(configfile, command):
         config.add_section('config')
 
     load_configfile_basic(config)
-    if command in ["migratebw","migratebwv2","migratebwusers","diffbw","exportperm","purgecoldest","purgegroupdest","importdata", "migrategroupmembers"]:
+    if command in ["migratebw","migratebwv2","migratecolextid","migratebwusers", "migrategroupmembers"]:
+        load_configfile_bw2bw(config)
+    elif command in ["diffbw","exportperm","purgecoldest","purgegroupdest","importdata"]:
         load_configfile_bw2bw(config)
     elif command in ["migratesf", "migratelp"]:
         load_configfile_lastpass(config)
@@ -1771,6 +1827,8 @@ def main(argv):
         migrate_users_bw_to_bw()
     elif command == "migrategroupmembers":
         migrate_group_members_bw_to_bw()
+    elif command == "migratecolextid":
+        migrate_col_ext_id_bw_to_bw()        
     elif command == "exportdata":
         export_data_complete_bw()
     elif command == "importdata":
