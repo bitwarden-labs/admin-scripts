@@ -42,7 +42,7 @@ def encrypt_env(env_file_path):
         key, value = line.split('=', 1)
         key = key.strip()
         value = value.strip()
-        env_vars[key] = value
+        env_vars[key] = value # assigns keys to values in Python dictionary
 
   with open(env_file_path, 'w') as env_file:
     for key, value in env_vars.items():
