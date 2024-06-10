@@ -20,10 +20,10 @@ https://bitwarden.com/help/public-api/#authentication
 ## Short description of the scripts in this repo
 
 - bwChangeAllUsersRole.sh
-This script will change the roles of all users from role X to role Y. For example, it can change all accounts with the "admin" role to the "owner" role.
+  This script will change the roles of all users from role X to role Y. For example, it can change all accounts with the "admin" role to the "owner" role.
 
 - bwConfirmAcceptedPeople.sh
-This script will automatically confirm all members that are still in "Need confirmation" state. For one-time run.
+  This script will automatically confirm all members that are still in "Need confirmation" state. For one-time run.
 
 - bwConfirmAcceptedPeopleSM.sh
 This script will automatically confirm all members who are still in the "Need confirmation" state. It uses Bitwarden Secrets Manager to store the API key and the Master Password.
