@@ -5,7 +5,7 @@ keys = ["serverURL", "client_id", "client_secret", "owner_username", "owner_mast
 env_file_path = ""
 encryption_password = ""
 
-# Check if .env exists
+# Check if .env exists, and uses initialise_env() to create it if it does not
 def check_env_file():
   current_directory = os.getcwd()
   env_file_path = os.path.join(current_directory, '.env')
@@ -16,10 +16,9 @@ def check_env_file():
   else:
     print(".env file not yet created.  Initialising .env file.")
     env_file_path, encryption_password = initialise_env()
-    print(encryption_password)
     encrypt_env(env_file_path)
 
-
+# Creates a .env file with the key:value pairs needed for interaction with Bitwarden
 def initialise_env():
   env_file_path = '.env'
   encryption_password = input(f"Please enter a password to encrypt your .env file: \n")
@@ -31,6 +30,7 @@ def initialise_env():
 
   return env_file_path, encryption_password
 
+# Encrypts non-comment values in .env file
 def encrypt_env(env_file_path):
   env_vars = {}
 
