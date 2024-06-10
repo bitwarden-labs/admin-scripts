@@ -11,7 +11,7 @@ https://jqlang.github.io/jq/download/
 - The personal API key (Client ID & Secret)
 https://bitwarden.com/help/personal-api-key/#get-your-personal-api-key
 
-- The Master Password, encrypted in a file. (See the instruction in each script)
+- The Master Password, encrypted in a file. (See the instructions in each script)
 
 4. For scripts requiring access to the Bitwarden Public API, you will need the Organization's API Keys (Client ID & Secret)
 https://bitwarden.com/help/public-api/#authentication
@@ -26,9 +26,9 @@ https://bitwarden.com/help/public-api/#authentication
   This script will automatically confirm all members that are still in "Need confirmation" state. For one-time run.
 
 - bwConfirmAcceptedPeopleSM.sh
-This script will automatically confirm all members who are still in the "Need confirmation" state. It uses Bitwarden Secrets Manager to store the API key and the Master Password.
+  This script will automatically confirm all members who are still in the "Need confirmation" state. It uses Bitwarden Secrets Manager to store the API key and the Master Password.
 
-- bwConfirmAcceptedPeopleWPass.sh
+- bwConfirmAcceptedPeopleWPass.sh<br>
 This script will automatically confirm all members that are still in "Need confirmation" state. Read the comment in the script on how to store the master password encrypted.
 
 - bwDeleteAllCollections.sh
