@@ -1,4 +1,4 @@
-from encryption import decrypt_aes_256_cbc, encrypt_aes_256_cbc
+from encryption import encrypt_aes_256_cbc
 import os
 
 keys = ["serverURL", "client_id", "client_secret", "owner_username", "owner_masterpassword"]
