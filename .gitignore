@@ -1,0 +1,9 @@
+.env
+**/__pycache__/
+example.env
+*.bin
+*.txt
+*.cfg
+*.pyc
+*.json
+.DS_Store

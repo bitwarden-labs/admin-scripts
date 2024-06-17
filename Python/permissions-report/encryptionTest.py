@@ -1,4 +1,4 @@
-from libs.utils import encrypt_pass, decrypt_get_secret, encrypt_aes_256_cbc, decrypt_aes_256_cbc
+from libs.utils import decrypt_get_secret, encrypt_aes_256_cbc, decrypt_aes_256_cbc
 import base64
 
 # Setup

@@ -8,7 +8,6 @@ from cryptography.hazmat.primitives import padding
 from base64 import b64decode
 import os
 
-
 def ensure_bytes(input_data):
     # Check if input_data is already a byte string
     if isinstance(input_data, bytes):
@@ -59,7 +58,6 @@ def decrypt_aes_256_cbc(encrypted_data_with_salt_iv, password):
     unpadded_data = unpadder.update(decrypted) + unpadder.finalize()
 
     return unpadded_data
-    
 
 def encrypt_aes_256_cbc(data, password):
 
