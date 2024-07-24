@@ -15,10 +15,11 @@ password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbk
  -salt -pass pass:replacewithyoursupersecretstring)
 
 session_key="$(printf $password | bw unlock --raw)"
+export BW_SESSION="$session_key"
 
 # Build a list of parents
 
-parentcollections=$(bw --session "$session_key" list org-collections --organizationid $organization_id | jq -r '.[].name' | grep \/ | uniq | cut -f1 -d \/ | uniq)
+parentcollections=$(bw list org-collections --organizationid $organization_id | jq -r '.[].name' | grep \/ | uniq | cut -f1 -d \/ | uniq)
 
 # Collection names can contain spaces, we don't want the loop separating on those
 IFS=$'\n'
@@ -26,28 +27,28 @@ for parent in $parentcollections; do
 
     echo "I found parent $parent"
     # Get the Parent's Collection ID
-    parentid=$(bw --session "$session_key" list org-collections --organizationid $organization_id | jq --arg p "$parent" -r '.[] | select(.name == $p) | .id')
+    parentid=$(bw list org-collections --organizationid $organization_id | jq --arg p "$parent" -r '.[] | select(.name == $p) | .id')
 
 	if [ -n "$parentid" ]; then
 
-		parentspermissions=$(bw --session "$session_key" get org-collection $parentid --organizationid $organization_id | jq -c '.groups')
+		parentspermissions=$(bw get org-collection $parentid --organizationid $organization_id | jq -c '.groups')
 	
 		# How deep does the nesting go?
 	
-		childiters=$(bw --session "$session_key" list org-collections --organizationid $organization_id | jq -r '.[].name' | grep \/ | grep -F "$parent" | awk '{print gsub(/\//,"")}' | sort -rn | head -n1)
+		childiters=$(bw list org-collections --organizationid $organization_id | jq -r '.[].name' | grep \/ | grep -F "$parent" | awk '{print gsub(/\//,"")}' | sort -rn | head -n1)
 
 		# Loop through each layer of nesting
 		while [ "$childiters" -ge 1 ]; do
 
 			# Get a list of Collections under this Parent
-			IFS=$'\n' read -r -d '' -a childcollections < <(bw --session "$session_key" list org-collections --organizationid $organization_id | jq -r '.[].name' | grep \/ | grep -F "$parent" | cut -f$((childiters+1)) -d \/ | uniq && printf '\0')
+			IFS=$'\n' read -r -d '' -a childcollections < <(bw list org-collections --organizationid $organization_id | jq -r '.[].name' | grep \/ | grep -F "$parent" | cut -f$((childiters+1)) -d \/ | uniq && printf '\0')
 
 			# Loop through each Child
 			for child in "${childcollections[@]}"; do
 
 				echo "I found $child in $parent"
-				childid=$(bw --session "$session_key" list org-collections --organizationid $organization_id | jq --arg p "$parent" '.[] | select(.name | contains($p)) | {name, id}' | jq --arg c "$child" -r '. | select(.name | contains($c)) | .id' | uniq | head -n1)
-				bw --session "$session_key" get org-collection $childid --organizationid $organization_id | jq --argjson g "$parentspermissions" -c '.groups=$g' | bw encode | bw --quiet --session "$session_key" edit org-collection $childid --organizationid $organization_id
+				childid=$(bw list org-collections --organizationid $organization_id | jq --arg p "$parent" '.[] | select(.name | contains($p)) | {name, id}' | jq --arg c "$child" -r '. | select(.name | contains($c)) | .id' | uniq | head -n1)
+				bw get org-collection $childid --organizationid $organization_id | jq --argjson g "$parentspermissions" -c '.groups=$g' | bw encode | bw --quiet   edit org-collection $childid --organizationid $organization_id
 
 			done
 			# Reset IFS to its default value
@@ -57,5 +58,7 @@ for parent in $parentcollections; do
 		done
 	
 	fi
-    
+
 done
+
+bw logout
