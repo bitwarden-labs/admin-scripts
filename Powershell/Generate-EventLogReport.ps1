@@ -24,7 +24,7 @@ End date for logs (default: today).
 (Optional) Path to a CSV file where the logs should be saved.
 
 .PARAMETER Columns
-(Optional) Array of columns to display (e.g., date, type, device). By default, it shows date, type, and device.
+(Optional) Array of columns to display (e.g., date, type, device). By default, it shows date, type, device, and memberEmail.
 
 .EXAMPLE
 .\Generate-EventLogReport.ps1 -CLIENT_ID "your-client-id" -CLIENT_SECRET "your-client-secret" -start_date "2024-06-01" -end_date "2024-08-31"
@@ -39,16 +39,8 @@ Fetches logs and saves them to "logs.csv" in CSV format.
 Fetches and displays logs from the last month up to today.
 
 .EXAMPLE
-.\Generate-EventLogReport.ps1 -CLIENT_ID "your-client-id" -CLIENT_SECRET "your-client-secret" -OutputCSV "logs.csv"
-Fetches logs from the last month up to today and saves them to "logs.csv" in CSV format.
-
-.EXAMPLE
-.\Generate-EventLogReport.ps1 -CLIENT_ID "your-client-id" -CLIENT_SECRET "your-client-secret" -Columns date,type,device
-Fetches logs and displays only the date, type, and device columns.
-
-.EXAMPLE
-.\Generate-EventLogReport.ps1 -CLIENT_ID "your-client-id" -CLIENT_SECRET "your-client-secret" -Columns date,type,device -OutputCSV "filtered_logs.csv"
-Fetches logs, displays only the date, type, and device columns, and saves them to "filtered_logs.csv" in CSV format.
+.\Generate-EventLogReport.ps1 -CLIENT_ID "your-client-id" -CLIENT_SECRET "your-client-secret" -Columns date,type,device,memberEmail
+Fetches logs and displays only the date, type, device, and memberEmail columns.
 #>
 
 param (
@@ -59,9 +51,8 @@ param (
     [datetime]$start_date = (Get-Date).AddMonths(-1),
     [datetime]$end_date = (Get-Date),
     [string]$OutputCSV,
-    [string[]]$Columns = @("date", "type", "device")  # Default columns
+    [string[]]$Columns = @("date", "type", "device", "memberEmail")  # Added memberEmail to default columns
 )
-
 function Update-Type {
     param ([int]$type)
     switch ($type) {
@@ -167,6 +158,17 @@ function Update-Device {
     }
 }
 
+function Get-Members {
+    param ()
+    $headers = @{
+        "Authorization" = "Bearer $access_token"
+        "Content-Type"  = "application/json"
+    }
+    $uri = "$API_URL/public/members"
+    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+    return $response
+}
+
 if (-not $CLIENT_ID -or -not $CLIENT_SECRET) {
     Write-Host "Error: CLIENT_ID and CLIENT_SECRET must be provided."
     exit 1
@@ -176,7 +178,7 @@ $date_format = "yyyy-MM-dd"
 $start_date_iso = $start_date.ToString($date_format) + "T00:00:01.000Z"
 $end_date_iso = $end_date.ToString($date_format) + "T23:59:59.999Z"
 
-Write-Host "Fetching logs from $start_date_iso to $end_date_iso"
+Write-Host "Fetching logs from $start_date_iso to $end_date_iso ..."
 
 $auth_response = Invoke-RestMethod -Uri "$VAULT_URI/identity/connect/token" -Method Post -ContentType 'application/x-www-form-urlencoded' -Body @{
     grant_type    = "client_credentials"
@@ -186,6 +188,13 @@ $auth_response = Invoke-RestMethod -Uri "$VAULT_URI/identity/connect/token" -Met
 }
 
 $access_token = $auth_response.access_token
+
+Write-Host "Fetching members and create a memberId to email mapping ..."
+$member_map = @{}
+$members = Get-Members
+$members.data | ForEach-Object {
+    $member_map[$_.id] = $_.email
+}
 
 function Get-EventLogs {
     param (
@@ -216,9 +225,12 @@ $continuation_token = ""
 while ($has_more_logs) {
     $event_logs = Get-EventLogs -start $start_date_iso -end $end_date_iso -continuation_token $continuation_token
     $all_event_logs += $event_logs.data | ForEach-Object {
-        $_.type = Update-Type -type $_.type
-        $_.device = Update-Device -device $_.device
-        $_
+        [PSCustomObject]@{
+            date       = $_.date
+            type       = Update-Type -type $_.type
+            device     = Update-Device -device $_.device
+            memberEmail = if ($_.memberId) { $member_map[$_.memberId] } else { "N/A" }
+        }
     }
 
     if ($event_logs.continuationToken) {
@@ -235,6 +247,6 @@ if ($OutputCSV) {
     $all_event_logs | Format-Table -Property $Columns -AutoSize
 }
 
-Write-Host "`nSummary:"
+Write-Host "Summary:"
 $total_logs_fetched = ($all_event_logs | Measure-Object).Count
 Write-Host "Total logs '$total_logs_fetched' from $start_date_iso to $end_date_iso"
