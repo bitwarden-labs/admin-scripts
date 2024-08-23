@@ -35,7 +35,8 @@ Here you will find a variety of Bash, Powershell and Python script examples that
 [List All Organization Members (CLI/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Powershell/ListMembers.ps1)<Br>
 [List ALl Organization Members w/ 2FA Check (CLI/Powershell)](https://github.com/bitwarden-labs/admin-scripts/blob/main/Powershell/ListMembers2FACheck.ps1)
 
-
+### Event logs
+[Fetches Bitwarden event logs within a date range and displays them in a table or saves them to a CSV file (Powershell)](Powershell/Generate-EventLogReport.ps1)
 
 ## Disclaimer
 Please note that the projects in Bitwarden Labs are experimental and not officially supported by Bitwarden. They are provided "as is" with no guarantees.
