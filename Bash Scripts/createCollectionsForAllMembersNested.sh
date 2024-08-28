@@ -31,6 +31,7 @@ password=$(cat secureString.txt \
 session_key="$(printf $password | bw unlock --raw)"
 export BW_SESSION="$session_key"
 
+IFS=$'\n'
 bearer_token="$(curl -sX POST $identity_url/connect/token \
 	-H 'Content-Type: application/x-www-form-urlencoded' \
 	-d 'grant_type=client_credentials&scope=api.organization&client_id='organization.$organization_id'&client_secret='$org_client_secret_key'' \
