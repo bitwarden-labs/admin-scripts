@@ -2,9 +2,9 @@
 # Depends on file "secureString.txt" which can be created as an encrypted file by replacing all references in this script to:
 # replacewithyoursupersecretstring
 # With your own encryption phrase, and then running:
-# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
+# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
 # Depends on file "secureString_secret.txt" which can be created by first running:
-# echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:replacewithyoursupersecretstring > secureString_secret.txt
+# echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureString_secret.txt
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
 # openssl is required in $PATH https://www.openssl.org/
@@ -22,7 +22,7 @@ fi
 
 # Set up CLI and API auth
 
-org_client_secret_key=$(cat secureString_secret.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 100000 \
+org_client_secret_key=$(cat secureString_secret.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
  -salt -pass pass:replacewithyoursupersecretstring)
 org_client_id=("organization.$organization_id")
 
@@ -32,7 +32,7 @@ bearer_token="$(curl -sX POST $identity_url/connect/token -H 'Content-Type: appl
 
 # Perform CLI and API auth
 
-password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 100000 \
+password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
  -salt -pass pass:replacewithyoursupersecretstring)
 
 session_key="$(printf $password | bw unlock --raw)"

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Depends on file "secureString_secret.txt" which can be created by first running:
-# echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:Secret@Bitwarden#69 > secureString_secret.txt
+# echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:Secret@Bitwarden#69 > secureString_secret.txt
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # openssl is required in $PATH https://www.openssl.org/
 
@@ -20,7 +20,7 @@ fi
 
 # Set up CLI and API auth
 
-org_client_secret_key=$(cat secureString_secret.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 100000 \
+org_client_secret_key=$(cat secureString_secret.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
  -salt -pass pass:Secret@Bitwarden#69)
 org_client_id=("organization.$organization_id")
 

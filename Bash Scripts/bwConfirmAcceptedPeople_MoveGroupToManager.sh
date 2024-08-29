@@ -1,8 +1,8 @@
 #!/bin/bash
 # Depends on file "secureString.txt" which can be created by first running:
-# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:Secret@Bitwarden#69 > secureString.txt
+# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:Secret@Bitwarden#69 > secureString.txt
 # Depends on file "secureString_secret.txt" which can be created by first running:
-# echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:Secret@Bitwarden#69 > secureString_secret.txt
+# echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:Secret@Bitwarden#69 > secureString_secret.txt
 # create groups.txt. One group name each line. Only members in these groups will be upgraded to Manager
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
@@ -31,7 +31,7 @@ done < groups.txt
 
 # Set up CLI and API auth
 
-org_client_secret_key=$(cat secureString_secret.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 100000 \
+org_client_secret_key=$(cat secureString_secret.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
  -salt -pass pass:Secret@Bitwarden#69)
 org_client_id=("organization.$organization_id")
 
@@ -57,7 +57,7 @@ while read -r group; do
 done < <(curl -s -X GET $api_url/public/groups/ -H "Authorization: Bearer $bearer_token" | jq -c '.data[]')
 
 
-password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 100000 \
+password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
  -salt -pass pass:Secret@Bitwarden#69)
 
 session_key="$(printf $password | bw unlock --raw)"
