@@ -2,7 +2,7 @@
 # Depends on file "secureString.txt" which can be created as an encrypted file by replacing all references in this script to:
 # replacewithyoursupersecretstring
 # With your own encryption phrase, and then running:
-# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
+# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
 # Assumes a list of Collections in a file named collections.csv in the current directory
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
@@ -12,7 +12,7 @@ organization_id="YOUR-ORGANIZATION-ID" # Set your Org ID
 
 # Perform CLI auth
 
-password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 100000 \
+password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
  -salt -pass pass:replacewithyoursupersecretstring)
 
 session_key="$(printf $password | bw unlock --raw)"
