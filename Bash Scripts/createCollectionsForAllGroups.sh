@@ -45,7 +45,7 @@ group_ids="$(echo $org_groups | jq -r '.data[].id')"
 
 # For each Group, create a Collection, and then assign that Group to it
 
-for groupname in ${group_names[@]}; do
+for groupname in "${group_names[@]}"; do
 
 # Check if the Group already exists
 
