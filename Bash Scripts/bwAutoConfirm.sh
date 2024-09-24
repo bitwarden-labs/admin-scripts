@@ -48,7 +48,7 @@ get_jq_path() {
     else
       # If bw is not found, print an error message
       echo "jq not found in PATH or in the same directory as the script."
-      echo "Download jq from https://jqlang.github.io/jq/download/"
+      echo "Download jq from your package manager or https://jqlang.github.io/jq/download/"
       exit 1
     fi
   fi
