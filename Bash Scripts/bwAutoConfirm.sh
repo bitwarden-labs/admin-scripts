@@ -2,9 +2,10 @@
 
 BW_PATH=""
 JQ_PATH=""
-SECURE_STR="Secret@Bitwarden#88"
+SECURE_STR=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 CONFIG_FILE="user_config.yml"
+SECRET_FILE="$SCRIPT_DIR/.secret"
 
 # Mode for the setup. 
 # For future developemt
@@ -21,7 +22,6 @@ get_bw_path() {
     BW_PATH=$(command -v bw)
   else
     # If bw is not found in the PATH, check if it's in the same directory as the script
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
     if [ -f "$SCRIPT_DIR/bw" ]; then
       # If bw is found in the same directory as the script, store the full path in the global variable
       BW_PATH="$SCRIPT_DIR/bw"
@@ -42,7 +42,6 @@ get_jq_path() {
     JQ_PATH=$(command -v jq)
   else
     # If bw is not found in the PATH, check if it's in the same directory as the script
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
     if [ -f "$SCRIPT_DIR/jq" ]; then
       # If bw is found in the same directory as the script, store the full path in the global variable
       JQ_PATH="$SCRIPT_DIR/jq"
@@ -62,6 +61,14 @@ check_openssl() {
     echo "OpenSSL is not installed."
     exit 1
   fi
+}
+
+generate_random_string() {
+    # Generate the random string and store it in a variable
+    local random_string=$(LC_ALL=C </dev/urandom tr -dc 'A-Za-z0-9!@#^*-_=+;:,.<>?/' | head -c 16)
+    
+    # Return the random string
+    echo "$random_string"
 }
 
 encrypt_text() {
@@ -117,10 +124,22 @@ server_url_menu() {
   esac
 }
 
+function check_secret_file() {
+  # Check if the secret string file exists
+  if [[ ! -f "$SECRET_FILE" ]]; then
+    # Create the file
+    echo "Secret file is not found. Generating a secure string"
+    SECURE_STR=$(generate_random_string)
+    echo $SECURE_STR > "$SECRET_FILE"
+  else
+    SECURE_STR=$(cat "$SECRET_FILE")  
+  fi
+}
 
 # Function to write user-provided configs to a YAML file
 write_configs() {
   local config_file="$1"
+  check_secret_file
   server_url_menu
 
   # Prompt the user for input
@@ -143,7 +162,7 @@ user_master_pass: $encrypted_master_pass
 org_id: $org_id
 EOL
 
-  echo "Configurations written to $config_file."
+  echo "Configurations written to $config_file. You can run the script now"
 }
 
 # Function to read configs from a YAML file and store them into variables
@@ -178,7 +197,17 @@ check_openssl
 
 if [ ! -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
   # Config File is not found. Write user-provided configs to the YAML file
+  echo "Config file is not found. Running script setup"
   write_configs "$CONFIG_FILE"
+  exit 0
+fi
+
+if [ ! -f "$SECRET_FILE" ]; then
+  # Config File is not found. Write user-provided configs to the YAML file
+  echo ".secret file is not found. exiting.."
+  exit 1
+else
+  SECURE_STR=$(cat "$SECRET_FILE")
 fi
 
 
@@ -199,7 +228,7 @@ BW_SESSION=$($BW_PATH unlock --passwordenv BW_PASSWORD --raw)
 
 if [ -z "$BW_SESSION" ]; then
   echo "Login failed. Session is still empty"
-  return 1
+  exit 1
 fi
 
 #empty env vars that are not needed
