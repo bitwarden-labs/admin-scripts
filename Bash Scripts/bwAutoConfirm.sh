@@ -13,46 +13,31 @@ SECRET_FILE="$SCRIPT_DIR/.secret"
 # CLI : CLI Only
 # BOTH : Both API and CLI Only
 #mode="API"
-
-# Function to get the full path of bw
-get_bw_path() {
-  # Check if bw is in the PATH
-  if command -v bw &> /dev/null; then
-    # If bw is found in the PATH, store the full path in the global variable
-    BW_PATH=$(command -v bw)
+ 
+get_program_path() {
+  local program_name=$1
+  local program_path=""
+  # Check if the program is in the PATH
+  if command -v "$program_name" &> /dev/null; then
+    # If the program is found in the PATH, store the full path in the global variable
+    program_path=$(command -v "$program_name")
   else
-    # If bw is not found in the PATH, check if it's in the same directory as the script
-    if [ -f "$SCRIPT_DIR/bw" ]; then
-      # If bw is found in the same directory as the script, store the full path in the global variable
-      BW_PATH="$SCRIPT_DIR/bw"
+    # If the program is not found in the PATH, check if it's in the same directory as the script
+    if [ -f "$SCRIPT_DIR/$program_name" ]; then
+      # If the program is found in the same directory as the script, store the full path in the global variable
+      program_path="$SCRIPT_DIR/$program_name"
     else
-      # If bw is not found, print an error message
-      echo "bw not found in PATH or in the same directory as the script."
-      echo "Download Bitwarden CLI from https://bitwarden.com/download/"
+      # If the program is not found, print an error message
+      echo "$program_name not found in PATH or in the same directory as the script." >&2
+      echo "Download $program_name from your package manager or the appropriate website." >&2
+      echo "bw: https://bitwarden.com/download/" >&2
+      echo "jq: https://jqlang.github.io/jq/download/" >&2
       exit 1
     fi
   fi
+  echo $program_path
 }
 
-# Function to get the full path of bw
-get_jq_path() {
-  # Check if bw is in the PATH
-  if command -v jq &> /dev/null; then
-    # If bw is found in the PATH, store the full path in the global variable
-    JQ_PATH=$(command -v jq)
-  else
-    # If bw is not found in the PATH, check if it's in the same directory as the script
-    if [ -f "$SCRIPT_DIR/jq" ]; then
-      # If bw is found in the same directory as the script, store the full path in the global variable
-      JQ_PATH="$SCRIPT_DIR/jq"
-    else
-      # If bw is not found, print an error message
-      echo "jq not found in PATH or in the same directory as the script."
-      echo "Download jq from your package manager or https://jqlang.github.io/jq/download/"
-      exit 1
-    fi
-  fi
-}
 
 # Function to get the full path of openssl
 check_openssl() {
@@ -190,8 +175,9 @@ read_configs() {
 
 }
 
-get_bw_path
-get_jq_path
+BW_PATH=$(get_program_path "bw") || exit 1
+JQ_PATH=$(get_program_path "jq") || exit 1 
+
 check_openssl
 
 
