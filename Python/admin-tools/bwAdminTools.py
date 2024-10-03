@@ -761,6 +761,7 @@ def export_data_from_origin_v2(f_bw_cli_session):
                         f_bw_cli_session,
                         "--raw"
                     ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            item["collectionIds"] = list(set(item["collectionIds"]))
 
 
     data_export = {"encrypted": False, "collections": data_collections, "items": data_items}
