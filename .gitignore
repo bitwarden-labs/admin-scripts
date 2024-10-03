@@ -1,0 +1,9 @@
+# Local executables
+bw
+
+# secret files
+secureString_secret.txt
+secureString.txt
+
+# Python/admin-tools config
+config.cfg 
