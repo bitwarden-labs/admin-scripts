@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Dependencies:
+#
 # - secureString.txt (Master password encrypted using OpenSSL):
 #   echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:Secret@Bitwarden#99 > secureString.txt
 #
@@ -18,15 +19,16 @@ api_url="https://api.bitwarden.eu"                      # Set your API URL
 identity_url="https://identity.bitwarden.eu"            # Set your Identity URL
 
 # Secret files
+num_iterations=600001
 secure_password_file="secureString.txt"                 # Local encrypted master password file
 secure_secret_file="secureString_secret.txt"            # Local encrypted org client secret file
 
 # Retrieve and decrypt the org secret key and master password
 org_client_secret_key=$(cat "$secure_secret_file" | openssl enc -aes-256-cbc \
-  -md sha512 -a -d -pbkdf2 -iter 600001 -salt -pass pass:Secret@Bitwarden#99)
+  -md sha512 -a -d -pbkdf2 -iter $num_iterations -salt -pass pass:Secret@Bitwarden#99)
 
 password=$(cat "$secure_password_file" | openssl enc -aes-256-cbc -md sha512 \
-  -a -d -pbkdf2 -iter 600001 -salt -pass pass:Secret@Bitwarden#99)
+  -a -d -pbkdf2 -iter $num_iterations -salt -pass pass:Secret@Bitwarden#99)
 
 # Unlock Bitwarden CLI and obtain session key
 session_key=$(printf "%s" "$password" | bw unlock --raw)
