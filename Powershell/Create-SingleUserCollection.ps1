@@ -12,13 +12,15 @@
     **Important**: The `USER_PRINCIPAL_NAME` must already exist as a member in the specified organization.
 
 .PARAMETER ORG_ID
-    The UUID format organization ID for Bitwarden (e.g., "your-org-id").
+    The UUID format organization ID for Bitwarden (e.g., 'your-org-id').
 
 .PARAMETER USER_EMAIL
     The email of the Bitwarden user account used for CLI login.
 
 .PARAMETER MASTER_PASSWORD
-    The master password for the Bitwarden user account.
+    The master password for the Bitwarden user account, provided as a SecureString. 
+    **Tip**: To enter the master password securely, run the following before the script:
+    `$MasterPassword = Read-Host -Prompt 'Enter master password' -AsSecureString`
 
 .PARAMETER USER_PRINCIPAL_NAME
     The email address of the user for whom the collection will be created. 
@@ -28,24 +30,26 @@
     The name to use for the user in the collection name.
 
 .PARAMETER PARENT_COLLECTION_NAME
-    The base name of the collection (e.g., "Personal Vaults").
+    The base name of the collection (e.g., 'Personal Vaults').
 
 .PARAMETER VAULT_URI
-    The URI of the Bitwarden vault (default: "https://vault.bitwarden.eu").
+    The URI of the Bitwarden vault (default: 'https://vault.bitwarden.eu').
 
 .EXAMPLE
-    .\Create-SingleUserCollection.ps1 -ORG_ID "your-org-id" -USER_EMAIL "your-email" -MASTER_PASSWORD "your-master-password" -USER_PRINCIPAL_NAME "johndoe@domain.com" -NAME "John Doe" -PARENT_COLLECTION_NAME "Personal Vaults"
-    Creates a collection for the user "johndoe@domain.com" within the specified Bitwarden organization under the "Personal Vaults/John Doe" collection.
+    $SecurePassword = Read-Host -Prompt 'Enter master password' -AsSecureString
+    .\New-UserCollection.ps1 -ORG_ID 'your-org-id' -USER_EMAIL 'your-email' -MASTER_PASSWORD $SecurePassword -USER_PRINCIPAL_NAME 'johndoe@domain.com' -NAME 'John Doe' -PARENT_COLLECTION_NAME 'Personal Vaults'
+
+    Creates a collection for the user 'johndoe@domain.com' within the specified Bitwarden organization under the 'Personal Vaults/John Doe' collection.
 #>
 
 param(
     [string]$ORG_ID,
     [string]$USER_EMAIL,
-    [string]$MASTER_PASSWORD,
+    [SecureString]$MASTER_PASSWORD,
     [string]$USER_PRINCIPAL_NAME,
     [string]$NAME,
-    [string]$PARENT_COLLECTION_NAME = "Personal Vaults",
-    [string]$VAULT_URI = "https://vault.bitwarden.eu",
+    [string]$PARENT_COLLECTION_NAME = 'Personal Vaults',
+    [string]$VAULT_URI = 'https://vault.bitwarden.eu',
     [switch]$Help
 )
 
@@ -55,50 +59,77 @@ if ($Help) {
     exit 0
 }
 
-# Check if required parameters are provided
-if (-not $ORG_ID -or -not $USER_EMAIL -or -not $MASTER_PASSWORD -or -not $USER_PRINCIPAL_NAME -or -not $NAME) {
-    Write-Host "Missing required parameters. Use -Help for detailed usage information." -ForegroundColor Yellow
-    Write-Host "`nUsage example:"
-    Write-Host "  .\Create-SingleUserCollection.ps1 -ORG_ID 'your-org-id' -USER_EMAIL 'your-email' -MASTER_PASSWORD 'your-master-password' -USER_PRINCIPAL_NAME 'johndoe@domain.com' -NAME 'John Doe'"
+# Detailed error message for missing parameters
+$missingParams = @()
+if (-not $ORG_ID)           { $missingParams += 'ORG_ID: The UUID format organization ID for Bitwarden (e.g., ''your-org-id'').' }
+if (-not $USER_EMAIL)       { $missingParams += 'USER_EMAIL: The email of the Bitwarden user account used for CLI login.' }
+if (-not $MASTER_PASSWORD)  { $missingParams += 'MASTER_PASSWORD: The master password for the Bitwarden user account, provided as a SecureString.' }
+if (-not $USER_PRINCIPAL_NAME) { $missingParams += 'USER_PRINCIPAL_NAME: The email address of the user for whom the collection will be created.' }
+if (-not $NAME)             { $missingParams += 'NAME: The name to use for the user in the collection name.' }
+
+# If any parameters are missing, output a detailed message and usage example
+if ($missingParams.Count -gt 0) {
+    Write-Host 'The following required parameters are missing:' -ForegroundColor Yellow
+    $missingParams | ForEach-Object { Write-Host " - $_" -ForegroundColor Yellow }
+    Write-Host "`nDescription:" -ForegroundColor Yellow
+    Write-Host 'This script creates a single Bitwarden collection for a specified user.' -ForegroundColor Yellow
+    Write-Host "`nUsage example:" -ForegroundColor Yellow
+    Write-Host "  `\$SecurePassword = Read-Host -Prompt 'Enter master password' -AsSecureString" -ForegroundColor Yellow
+    Write-Host "  .\New-UserCollection.ps1 -ORG_ID 'your-org-id' -USER_EMAIL 'your-email' -MASTER_PASSWORD `\$SecurePassword -USER_PRINCIPAL_NAME 'johndoe@domain.com' -NAME 'John Doe'" -ForegroundColor Yellow
     exit 1
 }
 
 # Define the path to the Bitwarden CLI executable
-$BW_EXEC = "./bw"
+$BW_EXEC = './bw'
 
-# Function to configure the Bitwarden CLI for the specified server and log in with the master password
-function Configure-BitwardenCLI {
+# Convert SecureString to PlainText
+function Convert-SecureStringToPlainText {
+    param ([SecureString]$secureString)
+    $marshalPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureString)
+    try {
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($marshalPtr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($marshalPtr)
+    }
+}
+
+# Function to initialize the Bitwarden CLI for the specified server and log in with the master password
+function Initialize-BitwardenCLI {
     param (
         [string]$vault_uri,
         [string]$user_email,
-        [string]$master_password
+        [SecureString]$master_password
     )
     & $BW_EXEC logout | Out-Null  # Log out to avoid conflicts with existing sessions
     & $BW_EXEC config server $vault_uri
 
+    # Convert SecureString to plaintext only when needed for CLI login
+    $plainTextPassword = Convert-SecureStringToPlainText -secureString $master_password
+
     # Log in and unlock using the master password
-    Write-Host "🔐 Logging into Bitwarden CLI..."
-    & $BW_EXEC login $user_email $master_password
+    Write-Host '🔐 Logging into Bitwarden CLI...'
+    & $BW_EXEC login $user_email $plainTextPassword
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Failed to login with the provided master password." -ForegroundColor Red
+        Write-Host '❌ Failed to login with the provided master password.' -ForegroundColor Red
         exit 1
     }
 
-    $session_key = & $BW_EXEC unlock $master_password --raw
+    $session_key = & $BW_EXEC unlock $plainTextPassword --raw
     if (!$session_key) {
-        Write-Host "❌ Failed to unlock Bitwarden CLI with the master password." -ForegroundColor Red
+        Write-Host '❌ Failed to unlock Bitwarden CLI with the master password.' -ForegroundColor Red
         exit 1
     }
 
     # Set the session key as an environment variable for use in subsequent commands
     $env:BW_SESSION = $session_key
-    Write-Host "🔑 Session key retrieved and set as BW_SESSION."
+    Write-Host '🔑 Session key retrieved and set as BW_SESSION.'
 
     return $session_key
 }
 
 # Function to create a Bitwarden collection for a single user
-function Create-UserCollection {
+function New-UserCollection {
     param (
         [string]$user_principal_name,
         [string]$name,
@@ -126,12 +157,12 @@ function Create-UserCollection {
 }
 
 # Main Script Execution
-Write-Host "🔧 Configuring Bitwarden CLI session..."
-$session_key = Configure-BitwardenCLI -vault_uri $VAULT_URI -user_email $USER_EMAIL -master_password $MASTER_PASSWORD
+Write-Host '🔧 Initializing Bitwarden CLI session...'
+$session_key = Initialize-BitwardenCLI -vault_uri $VAULT_URI -user_email $USER_EMAIL -master_password $MASTER_PASSWORD
 if (!$session_key) {
-    Write-Host "❌ Failed to retrieve session key." -ForegroundColor Red
+    Write-Host '❌ Failed to retrieve session key.' -ForegroundColor Red
     exit 1
 }
 
 # Use $ORG_ID directly as the organization identifier
-Create-UserCollection -user_principal_name $USER_PRINCIPAL_NAME -name $NAME -organization_id $ORG_ID -parent_collection_name $PARENT_COLLECTION_NAME
+New-UserCollection -user_principal_name $USER_PRINCIPAL_NAME -name $NAME -organization_id $ORG_ID -parent_collection_name $PARENT_COLLECTION_NAME
