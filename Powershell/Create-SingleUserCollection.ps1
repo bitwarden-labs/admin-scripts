@@ -69,13 +69,13 @@ if (-not $NAME)             { $missingParams += 'NAME: The name to use for the u
 
 # If any parameters are missing, output a detailed message and usage example
 if ($missingParams.Count -gt 0) {
-    Write-Host 'The following required parameters are missing:' -ForegroundColor Yellow
-    $missingParams | ForEach-Object { Write-Host " - $_" -ForegroundColor Yellow }
-    Write-Host "`nDescription:" -ForegroundColor Yellow
-    Write-Host 'This script creates a single Bitwarden collection for a specified user.' -ForegroundColor Yellow
-    Write-Host "`nUsage example:" -ForegroundColor Yellow
-    Write-Host "  `\$SecurePassword = Read-Host -Prompt 'Enter master password' -AsSecureString" -ForegroundColor Yellow
-    Write-Host "  .\New-UserCollection.ps1 -ORG_ID 'your-org-id' -USER_EMAIL 'your-email' -MASTER_PASSWORD `\$SecurePassword -USER_PRINCIPAL_NAME 'johndoe@domain.com' -NAME 'John Doe'" -ForegroundColor Yellow
+    Write-Host 'The following required parameters are missing:' -ForegroundColor DarkGray
+    $missingParams | ForEach-Object { Write-Host " - $_" -ForegroundColor Red }
+    Write-Host "`nDescription:" -ForegroundColor DarkGray
+    Write-Host 'This script creates a single Bitwarden collection for a specified user.' -ForegroundColor White
+    Write-Host "`nUsage example:" -ForegroundColor DarkGray
+    Write-Host '  $SecurePassword = Read-Host -Prompt "Enter master password" -AsSecureString' -ForegroundColor Green
+    Write-Host '  .\Create-SingleUserCollection.ps1 -ORG_ID "your-org-id" -USER_EMAIL "your-email" -MASTER_PASSWORD `$SecurePassword -USER_PRINCIPAL_NAME "johndoe@domain.com" -NAME "John Doe"' -ForegroundColor Green
     exit 1
 }
 
