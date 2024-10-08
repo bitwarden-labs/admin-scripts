@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     This script logs into the Bitwarden CLI, retrieves all pending members in a specified organization, 
-    and confirms each one. It's designed to securely handle sensitive information and enable automation 
-    by using SecureString for password handling.
+    and confirms each one. If `secureString.txt` is not found, the script will prompt for the master password
+    and save it as an encrypted file for future use. Otherwise, it will use the existing file.
 
 .PARAMETER ORG_ID
     The UUID of the Bitwarden organization (e.g., 'b9c70d44-2615-4c84-9913-ac330139c9eb').
@@ -13,15 +13,11 @@
 .PARAMETER USER_EMAIL
     The email of the Bitwarden user account with permissions to manage organization members.
 
-.PARAMETER MASTER_PASSWORD
-    The master password for the Bitwarden user account, provided as a SecureString.
-
 .PARAMETER VAULT_URI
     The URI of the Bitwarden vault (default: 'https://vault.bitwarden.com').
 
 .EXAMPLE
-    $SecurePassword = Read-Host -Prompt 'Enter master password' -AsSecureString
-    .\Confirm-PendingMembers.ps1 -ORG_ID 'your-org-id' -USER_EMAIL 'admin@example.com' -MASTER_PASSWORD $SecurePassword
+    .\Confirm-PendingMembers.ps1 -ORG_ID 'your-org-id' -USER_EMAIL 'admin@example.com'
 
     Automatically confirms all pending members in the specified Bitwarden organization.
 #>
@@ -29,7 +25,6 @@
 param(
     [string]$ORG_ID,
     [string]$USER_EMAIL,
-    [SecureString]$MASTER_PASSWORD,
     [string]$VAULT_URI = 'https://vault.bitwarden.com',  # Default to main Bitwarden server
     [switch]$Help
 )
@@ -42,9 +37,8 @@ if ($Help) {
 
 # Check if required parameters are provided
 $missingParams = @()
-if (-not $ORG_ID)          { $missingParams += 'ORG_ID: The UUID of the Bitwarden organization (e.g., ''b9c70d44-2615-4c84-9913-ac330139c9eb'').' }
-if (-not $USER_EMAIL)      { $missingParams += 'USER_EMAIL: The email of the Bitwarden user account with permissions to manage organization members.' }
-if (-not $MASTER_PASSWORD) { $missingParams += 'MASTER_PASSWORD: The master password for the Bitwarden user account, provided as a SecureString.' }
+if (-not $ORG_ID)     { $missingParams += 'ORG_ID: The UUID of the Bitwarden organization (e.g., ''b9c70d44-2615-4c84-9913-ac330139c9eb'').' }
+if (-not $USER_EMAIL) { $missingParams += 'USER_EMAIL: The email of the Bitwarden user account with permissions to manage organization members.' }
 
 if ($missingParams.Count -gt 0) {
     Write-Host 'The following required parameters are missing:' -ForegroundColor DarkGray
@@ -52,13 +46,26 @@ if ($missingParams.Count -gt 0) {
     Write-Host "`nDescription:" -ForegroundColor DarkGray
     Write-Host 'This script confirms all pending members in the specified Bitwarden organization.' -ForegroundColor White
     Write-Host "`nUsage example:" -ForegroundColor DarkGray
-    Write-Host '  $SecurePassword = Read-Host -Prompt "Enter master password" -AsSecureString' -ForegroundColor Green
-    Write-Host '  .\Confirm-PendingMembers.ps1 -ORG_ID "your-org-id" -USER_EMAIL "your-email" -MASTER_PASSWORD `$SecurePassword' -ForegroundColor Green
+    Write-Host '  .\Confirm-PendingMembers.ps1 -ORG_ID "your-org-id" -USER_EMAIL "your-email"' -ForegroundColor Green
     exit 1
 }
 
 # Define the path to the Bitwarden CLI executable
 $BW_EXEC = './bw'
+$secureStringPath = './secureString.txt'
+
+# Check if secureString.txt exists
+if (Test-Path $secureStringPath) {
+    # Load encrypted master password from file
+    $MASTER_PASSWORD = Get-Content $secureStringPath | ConvertTo-SecureString
+    Write-Host "🔐 Loaded master password from secureString.txt" -ForegroundColor Green
+} else {
+    # Prompt for the master password and save it as SecureString to file
+    Write-Host "Please enter your master password:" -ForegroundColor Yellow
+    $MASTER_PASSWORD = Read-Host -AsSecureString
+    $MASTER_PASSWORD | ConvertFrom-SecureString | Out-File $secureStringPath
+    Write-Host "💾 Master password saved to secureString.txt for future use." -ForegroundColor Green
+}
 
 # Convert SecureString to PlainText
 function Convert-SecureStringToPlainText {
@@ -80,12 +87,12 @@ function Initialize-BitwardenCLI {
         [SecureString]$master_password
     )
 
-    Write-Host '🔧 Logging out & Configuring Bitwarden CLI...'
+    Write-Host '🔧 Configuring Bitwarden CLI...'
     & $BW_EXEC logout | Out-Null  # Log out to avoid conflicts with existing sessions
     & $BW_EXEC config server $vault_uri
 
     $plainTextPassword = Convert-SecureStringToPlainText -secureString $master_password
-    Write-Host "🔐 Logging '$user_email' into Bitwarden CLI..." -ForegroundColor Yellow
+    Write-Host "🔧 Attempting login for user: $user_email" -ForegroundColor Yellow
 
     # Try to log in
     $loginOutput = & $BW_EXEC login $user_email $plainTextPassword
@@ -97,7 +104,7 @@ function Initialize-BitwardenCLI {
     }
 
     # Attempt to unlock and set session key
-    Write-Host '🔐 Unlocking the vault...'
+    Write-Host '🔧 Unlocking the vault...'
     $session_key = & $BW_EXEC unlock $plainTextPassword --raw
     if (!$session_key) {
         Write-Host '❌ Failed to unlock Bitwarden CLI with the master password.' -ForegroundColor Red
@@ -109,14 +116,14 @@ function Initialize-BitwardenCLI {
 
     # Retry loop to confirm Bitwarden session is fully unlocked
     for ($i = 0; $i -lt 5; $i++) {
-        $bwStatus = & $BW_EXEC status --session $session_key | ConvertFrom-Json
+        $bwStatus = & $BW_EXEC status | ConvertFrom-Json
         if ($bwStatus.status -eq "unlocked") {
             Write-Host '✅ Bitwarden session is fully unlocked.' -ForegroundColor Green
             return $session_key
         }
         else {
             Start-Sleep -Seconds 2
-            Write-Host "Waiting for Bitwarden session to unlock... Attempt $($i+1)/5" -ForegroundColor Yellow
+            Write-Host "😮 Waiting for Bitwarden session to unlock... Attempt $($i+1)/5" -ForegroundColor Yellow
         }
     }
 
@@ -131,7 +138,7 @@ function Confirm-PendingMembers {
         [string]$session_key
     )
 
-    Write-Host '👥 Retrieving pending members...'
+    Write-Host '🧑‍🤝‍🧑 Retrieving pending members...'
     $org_members = & $BW_EXEC list org-members --organizationid $organization_id | ConvertFrom-Json
     $pending_members = $org_members | Where-Object { $_.status -eq 1 } | Select-Object -ExpandProperty id
 
@@ -140,7 +147,7 @@ function Confirm-PendingMembers {
         return
     }
 
-    Write-Host "🆗 Confirming pending members..."
+    Write-Host "⚙️  Confirming pending members..."
     foreach ($member_id in $pending_members) {
         try {
             & $BW_EXEC confirm org-member $member_id --organizationid $organization_id
@@ -153,13 +160,13 @@ function Confirm-PendingMembers {
 }
 
 # Main Script Execution
-Write-Host ' Initializing Bitwarden CLI session...'
+Write-Host '🔧 Initializing Bitwarden CLI session...'
 $session_key = Initialize-BitwardenCLI -vault_uri $VAULT_URI -user_email $USER_EMAIL -master_password $MASTER_PASSWORD
 if (!$session_key) {
     Write-Host '❌ Failed to retrieve session key.' -ForegroundColor Red
     exit 1
 }
-Write-Host '🔧 Session key retrieved successfully.' -ForegroundColor Green
+Write-Host '🔑 Session key retrieved successfully.' -ForegroundColor Green
 
 # Confirm pending members
 Confirm-PendingMembers -organization_id $ORG_ID -session_key $session_key
