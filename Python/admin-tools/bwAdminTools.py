@@ -1324,7 +1324,8 @@ def import_users_to_dest(f_bw_api_endpoint, f_access_token, f_member_details_lis
                         each_col["id"] = coll_dict_externalid[each_col["id"]]
             user_dict = {
                 "type": origin_user_details["type"],
-                "accessAll": origin_user_details["accessAll"],
+# Access All is deprecated                
+#                "accessAll": origin_user_details["accessAll"],
                 "externalId": origin_user_details["externalId"],
                 "resetPasswordEnrolled": each_dest_member["resetPasswordEnrolled"],
                 "collections": origin_user_details["collections"]
