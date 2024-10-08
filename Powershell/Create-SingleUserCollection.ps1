@@ -75,7 +75,7 @@ if ($missingParams.Count -gt 0) {
     Write-Host 'This script creates a single Bitwarden collection for a specified user.' -ForegroundColor White
     Write-Host "`nUsage example:" -ForegroundColor DarkGray
     Write-Host '  $SecurePassword = Read-Host -Prompt "Enter master password" -AsSecureString' -ForegroundColor Green
-    Write-Host '  .\Create-SingleUserCollection.ps1 -ORG_ID "your-org-id" -USER_EMAIL "your-email" -MASTER_PASSWORD `$SecurePassword -USER_PRINCIPAL_NAME "johndoe@domain.com" -NAME "John Doe"' -ForegroundColor Green
+    Write-Host '  .\Create-SingleUserCollection.ps1 -ORG_ID "your-org-id" -USER_EMAIL "your-email" -MASTER_PASSWORD `$SecurePassword -USER_PRINCIPAL_NAME "johndoe@domain.com" -NAME "John Doe" -PARENT_COLLECTION_NAME "Personal Vaults"' -ForegroundColor Green
     exit 1
 }
 
@@ -108,13 +108,14 @@ function Initialize-BitwardenCLI {
     $plainTextPassword = Convert-SecureStringToPlainText -secureString $master_password
 
     # Log in and unlock using the master password
-    Write-Host '🔐 Logging into Bitwarden CLI...'
+    Write-Host "🔐 Logging '$user_email' into Bitwarden CLI..." -ForegroundColor Yellow
     & $BW_EXEC login $user_email $plainTextPassword
     if ($LASTEXITCODE -ne 0) {
         Write-Host '❌ Failed to login with the provided master password.' -ForegroundColor Red
         exit 1
     }
 
+    Write-Host '🔐 Unlocking the vault...'
     $session_key = & $BW_EXEC unlock $plainTextPassword --raw
     if (!$session_key) {
         Write-Host '❌ Failed to unlock Bitwarden CLI with the master password.' -ForegroundColor Red
