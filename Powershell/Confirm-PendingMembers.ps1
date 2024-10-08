@@ -147,7 +147,7 @@ function Confirm-PendingMembers {
         return
     }
 
-    Write-Host "⚙️  Confirming pending members..."
+    Write-Host "🥤 Confirming pending members..."
     foreach ($member_id in $pending_members) {
         try {
             & $BW_EXEC confirm org-member $member_id --organizationid $organization_id
