@@ -18,10 +18,10 @@
     The Client Secret for accessing the Bitwarden Public API (required for user and group retrieval).
 
 .PARAMETER MASTER_PASSWORD
-    The master password for the Bitwarden account used to unlock the vault (default: "estaeslaclave").
+    The master password for the Bitwarden account used to unlock the vault.
 
 .PARAMETER EMAIL
-    The email of the Bitwarden user account used for CLI login (default: "fgonzalez@bitwarden.support").
+    The email of the Bitwarden user account used for CLI login. 
 
 .PARAMETER SERVER_URI
     The URI of the Bitwarden server (default: "https://vault.bitwarden.eu").
