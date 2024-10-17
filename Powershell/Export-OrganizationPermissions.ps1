@@ -44,6 +44,16 @@
 
     # To run the script and display the data in the terminal:
     $DebugPreference = 'Continue' ; bw logout ; .\Export-OrganizationPermissions.ps1 -ORGANIZATION_ID "your-org-id" -CLIENT_ID "your-client-id" -CLIENT_SECRET "your-client-secret"
+
+    .\Export-OrganizationPermissions.ps1 `
+        -ORGANIZATION_ID "your-org-id" `
+        -CLIENT_ID "your-client-id" `
+        -CLIENT_SECRET (ConvertTo-SecureString "your-client-secret" -AsPlainText -Force) `
+        -EMAIL "youremail@domain.com" `
+        -MASTER_PASSWORD (ConvertTo-SecureString "your-master-password" -AsPlainText -Force) `
+        -OUTPUT_PATH "C:\Exports" `
+        -EXPORT_FORMAT "json" `
+        -LOG_FILE "C:\Logs\script.log"
 #>
 
 param (
