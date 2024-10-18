@@ -8,9 +8,6 @@
     and exports the data to a CSV or JSON file, or displays it in a table format in the terminal. It also retrieves groups
     and users from the Public API using client credentials. Once the script finishes, the server shuts down.
 
-.PARAMETER ORGANIZATION_ID
-    The organization ID for which to retrieve collections and permissions (required).
-
 .PARAMETER CLIENT_ID
     The Client ID for accessing the Bitwarden Public API (required for user and group retrieval).
 
@@ -54,13 +51,12 @@
         -OUTPUT_PATH "C:\Exports" `
         -EXPORT_FORMAT "json" `
         -LOG_FILE "C:\Logs\script.log"
+
+.NOTES
+    - [ ] Implement pagination
 #>
 
 param (
-    [Parameter(Mandatory=$true)] 
-    [ValidateNotNullOrEmpty()] 
-    [string]$ORGANIZATION_ID,
-
     [Parameter(Mandatory=$true)] 
     [ValidateNotNullOrEmpty()] 
     [string]$CLIENT_ID,
@@ -93,6 +89,8 @@ param (
     [string]$LOG_FILE
 )
 
+
+
 # Helper function for logging
 function Write-Log {
     param (
@@ -115,6 +113,10 @@ function Write-Log {
         Add-Content -Path $LOG_FILE -Value $logEntry
     }
 }
+
+# Extract ORGANIZATION_ID from CLIENT_ID
+$ORGANIZATION_ID = $CLIENT_ID.Split(".")[1]
+Write-Log "🔍 Extracted ORGANIZATION_ID: $ORGANIZATION_ID from CLIENT_ID"
 
 # Ensure Bitwarden CLI is available
 $BW_EXEC = "./bw"  # Adjust this if needed for your environment
