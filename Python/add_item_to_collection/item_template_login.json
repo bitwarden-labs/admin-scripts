@@ -1,0 +1,23 @@
+{
+  "fido2Credentials": [
+    {
+      "credentialId": "keyId",
+      "keyType": "keyType",
+      "keyAlgorithm": "keyAlgorithm",
+      "keyCurve": "keyCurve",
+      "keyValue": "keyValue",
+      "rpId": "rpId",
+      "userHandle": "userHandle",
+      "userName": "userName",
+      "counter": "counter",
+      "rpName": "rpName",
+      "userDisplayName": "userDisplayName",
+      "discoverable": "false",
+      "creationDate": null
+    }
+  ],
+  "uris": [],
+  "username": "jdoe",
+  "password": "myp@ssword123",
+  "totp": "JBSWY3DPEHPK3PXP"
+}
