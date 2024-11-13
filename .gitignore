@@ -17,3 +17,6 @@ bitwarden_org*_export_*.json
 
 # Files starting with test-*
 test-*
+
+# Python
+*.pyc
