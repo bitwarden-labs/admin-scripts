@@ -1,5 +1,8 @@
-# Local executables
+# Executables & downloaded files
 bw
+bw.*
+bwdc* 
+keytar.node
 
 # secret files
 secureString_secret.txt
@@ -7,3 +10,10 @@ secureString.txt
 
 # Python/admin-tools config
 config.cfg 
+
+# Local export iles
+bitwarden_org*_export_*.csv
+bitwarden_org*_export_*.json
+
+# Files starting with test-*
+test-*
