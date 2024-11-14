@@ -13,16 +13,17 @@ python3 generateEventLogReport.py --client_id <YOUR_CLIENT_ID> --client_secret <
 
 Optional Arguments:
 -------------------
---vault_uri      : Bitwarden Vault URI (default: "https://vault.bitwarden.com").
---api_url        : Bitwarden API URL (default: "https://api.bitwarden.com").
---start_date     : Start date for logs (default: 1 day ago).
---end_date       : End date for logs (default: today).
---output_csv     : Path to save logs as a CSV file.
---columns        : Columns to display (default: event, device, date, userName, userEmail, ipAddress).
+--vault_uri           : Bitwarden Vault URI (default: "https://vault.bitwarden.com").
+--api_url             : Bitwarden API URL (default: "https://api.bitwarden.com").
+--start_date          : Start date for logs (default: 30 days ago).
+--end_date            : End date for logs (default: today).
+--output_csv          : Path to save logs as a CSV file.
+--columns             : Columns to display (default: event, device, date, userName, userEmail, ipAddress).
+--failed_login_attempt: Display failed login attempts (1005 and 1006).
 
 Examples:
 ---------
-1. Display logs from the last 1 day:
+1. Display logs from the last 30 days:
    python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET
 
 2. Save logs to a CSV:
@@ -34,6 +35,8 @@ Examples:
 4. Fetch logs within a specific date range:
    python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --start_date 2024-11-11T00:00:00Z --end_date 2024-11-31T23:59:59Z
 
+5. Display only failed login attempts:
+   python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --failed_login_attempt
 """
 
 import requests
@@ -147,10 +150,29 @@ def enrich_event_logs(event_logs: List[Dict[str, Any]], members: Dict[str, Any])
     
     return event_logs
 
-def save_to_csv(event_logs: List[Dict[str, Any]], columns: List[str], output_file: str) -> None:
-    df = pd.DataFrame(event_logs)
-    df.to_csv(output_file, columns=columns, index=False)
-    logging.info(f"Logs saved to {output_file}")
+def filter_failed_login_attempts(event_logs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [log for log in event_logs if log.get('type') in [1005, 1006]]
+
+def display_failed_login_attempts(event_logs: List[Dict[str, Any]]) -> None:
+    # Filter failed login attempts
+    failed_attempts = filter_failed_login_attempts(event_logs)
+    grouped_data = {}
+
+    # Group data by user
+    for log in failed_attempts:
+        user_key = f"{log['userName']} ({log['userEmail']})"
+        if user_key not in grouped_data:
+            grouped_data[user_key] = []
+        grouped_data[user_key].append(log)
+
+    # Display grouped data
+    for user, logs in grouped_data.items():
+        print(f"# {user}\n")
+        df = pd.DataFrame(logs, columns=['date', 'device', 'event'])
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date']).dt.strftime('%b %d, %Y, %I:%M:%S %p')
+        print(df.to_string(index=False))
+        print("\n")
 
 def display_logs(event_logs: List[Dict[str, Any]], columns: List[str]) -> None:
     df = pd.DataFrame(event_logs)
@@ -166,6 +188,11 @@ def display_logs(event_logs: List[Dict[str, Any]], columns: List[str]) -> None:
     
     print(df[existing_columns].to_string(index=False))
 
+def save_to_csv(event_logs: List[Dict[str, Any]], columns: List[str], output_file: str) -> None:
+    df = pd.DataFrame(event_logs)
+    df.to_csv(output_file, columns=columns, index=False)
+    logging.info(f"Logs saved to {output_file}")
+
 # Main function
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch Bitwarden event logs.")
@@ -177,6 +204,7 @@ if __name__ == "__main__":
     parser.add_argument('--end_date', default=datetime.now().strftime(DATE_FORMAT), help="End date for logs")
     parser.add_argument('--output_csv', help="Path to CSV file to save logs")
     parser.add_argument('--columns', nargs='+', default=["event", "device", "date", "userName", "userEmail", "ipAddress"], help="Columns to display")
+    parser.add_argument('--failed_login_attempt', action='store_true', help="Display failed login attempts (events 1005 and 1006)")
 
     args = parser.parse_args()
 
@@ -192,7 +220,9 @@ if __name__ == "__main__":
 
         enriched_logs = enrich_event_logs(event_logs, members)
 
-        if args.output_csv:
+        if args.failed_login_attempt:
+            display_failed_login_attempts(enriched_logs)
+        elif args.output_csv:
             save_to_csv(enriched_logs, args.columns, args.output_csv)
         else:
             display_logs(enriched_logs, args.columns)
