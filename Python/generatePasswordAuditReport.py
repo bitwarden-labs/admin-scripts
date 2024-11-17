@@ -4,7 +4,7 @@
 Bitwarden Password Audit Report Script
 =====================================
 
-This script starts a local Bitwarden server, unlocks the vault using the provided master password, and retrieves the list of items in the vault for a specified organization. It then checks the passwords of these items against the PwnedPasswords API to generate an "Exposed Passwords" report and displays the results in a tabular format.
+This script starts a local Bitwarden server, unlocks the vault using the provided master password, and retrieves the list of items in the vault for a specified organization. It then checks the passwords of these items against the PwnedPasswords API to generate an "Exposed Passwords" report, a "Reused Passwords" report, and an "Unsecure Websites" report, displaying the results in tabular format.
 
 Usage:
 ------
@@ -34,6 +34,7 @@ import argparse
 import logging
 import hashlib
 import pandas as pd
+from collections import Counter
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -134,13 +135,11 @@ def generate_exposed_passwords_report(items):
             password = item['login']['password']
             count = check_pwned_password(password)
             if count > 0:
-                
                 report_data.append({
                     'Item Name': item['name'],
                     'Exposed Count': count
                 })
             else:
-                
                 report_data.append({
                     'Item Name': item['name'],
                     'Exposed Count': 0
@@ -152,6 +151,53 @@ def generate_exposed_passwords_report(items):
         print(df.to_string(index=False))
     else:
         logging.info("No items found for the Exposed Passwords Report.")
+
+# Generate reused passwords report
+def generate_reused_passwords_report(items):
+    logging.info("📊 Generating Reused Passwords Report...")
+    passwords = [item['login']['password'] for item in items if 'login' in item and 'password' in item['login'] and item['login']['password']]
+    password_counts = Counter(passwords)
+    reused_passwords = [pw for pw, count in password_counts.items() if count > 1]
+
+    report_data = []
+    for item in items:
+        if 'login' in item and 'password' in item['login'] and item['login']['password'] in reused_passwords:
+            report_data.append({
+                'Item Name': item['name'],
+                'Username': item['login'].get('username', 'N/A'),
+                'Reused Count': password_counts[item['login']['password']]
+            })
+
+    # Convert the report to a DataFrame and display it
+    df = pd.DataFrame(report_data)
+    if not df.empty:
+        print("\nReused Passwords Report:\n")
+        print(df.to_string(index=False))
+        print("\nReusing passwords makes it easier for attackers to break into multiple accounts. You should change reused passwords to unique values.")
+    else:
+        logging.info("No items found for the Reused Passwords Report.")
+
+# Generate unsecured websites report
+def generate_unsecure_websites_report(items):
+    logging.info("📊 Generating Unsecure Websites Report...")
+    report_data = []
+    for item in items:
+        if 'login' in item and 'uris' in item['login'] and item['login']['uris']:
+            for uri in item['login']['uris']:
+                if uri['uri'].startswith('http://'):
+                    report_data.append({
+                        'Item Name': item['name'],
+                        'Username': item['login'].get('username', 'N/A'),
+                        'URI': uri['uri']
+                    })
+    # Convert the report to a DataFrame and display it
+    df = pd.DataFrame(report_data)
+    if not df.empty:
+        print("\nUnsecure Websites Report:\n")
+        print(df.to_string(index=False))
+        print("\nURLs that start with http:// don’t use the best available encryption. Change the login URIs for these accounts to https:// for safer browsing.")
+    else:
+        logging.info("No unsecured websites found for the Unsecure Websites Report.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Start Bitwarden local server and unlock vault.")
@@ -193,6 +239,12 @@ if __name__ == "__main__":
     
     # Generate Exposed Passwords Report
     generate_exposed_passwords_report(items)
+    
+    # Generate Reused Passwords Report
+    generate_reused_passwords_report(items)
+    
+    # Generate Unsecure Websites Report
+    generate_unsecure_websites_report(items)
     
     # Stop the server at the end (optional, for a graceful shutdown)
     logging.info("🚩 Stopping the local API server...")
