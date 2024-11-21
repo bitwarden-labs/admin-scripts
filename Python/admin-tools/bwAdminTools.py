@@ -413,7 +413,7 @@ def update_user_collection( f_bw_api_endpoint, f_access_token, f_user_id, f_data
         if (verbose): print("Error updating user ",f_user_id," Status Code: ",response.status_code)
     time.sleep(delay_after_api_call_secs)
 
-def update_user_collection_old_lastpass( user_id, user_name, user_type, user_accessAll, user_externalId, user_resetPasswordEnrolled, user_collections ):
+def update_user_collection_old_lastpass( user_id, user_name, user_type, user_externalId, user_resetPasswordEnrolled, user_collections ):
     global access_token
     if access_token == "":
         access_token = login_to_bw_public_api(bw_identity_endpoint,bw_org_client_id,bw_org_client_secret)
@@ -421,7 +421,7 @@ def update_user_collection_old_lastpass( user_id, user_name, user_type, user_acc
     http_headers = {'Authorization': 'Bearer '+access_token}
 
 
-    json_body = { "type": user_type, 'accessAll': user_accessAll, 'externalId': user_externalId, 'resetPasswordEnrolled': user_resetPasswordEnrolled, "collections": user_collections }
+    json_body = { "type": user_type, 'externalId': user_externalId, 'resetPasswordEnrolled': user_resetPasswordEnrolled, "collections": user_collections }
     http_headers = {'Authorization': 'Bearer ' + access_token}
     response = requests.put(bw_api_endpoint+"public/members/"+user_id, json=json_body, headers=http_headers)
     
@@ -453,7 +453,7 @@ def update_all_individual_accounts(account_list):
                     else:
                         user["collections"].append(account_list[user["email"]])
 
-                    update_user_collection_old_lastpass(user["id"], user["name"], user["type"], user["accessAll"], user["externalId"], user["resetPasswordEnrolled"], user["collections"])
+                    update_user_collection_old_lastpass(user["id"], user["name"], user["type"], user["externalId"], user["resetPasswordEnrolled"], user["collections"])
         else:
             if (debug or verbose): print("User list is empty")
     else:
@@ -544,6 +544,33 @@ def migrate_lastpass_permissions():
                         if not user["group_name"] in group_added and user["group_name"] in group_dict_name:
                             group_added[user["group_name"]] = True
                             if (debug): print("username: ",user["username"],"group: ",type(user["group_name"]))
+                            if user["can_administer"] == "1":
+                                manage = True
+                                readOnly = False
+                                hidePasswords = False
+                            else:
+                                manage = False                               
+                                if user["readonly"] == "1":
+                                    readOnly = True
+                                else:
+                                    readOnly = False
+                                if user["give"] == "1":
+                                    hidePasswords = False
+                                else:
+                                    hidePasswords = True
+
+                            json_group.append({  "id": group_dict_name[user["group_name"]]["id"], "readOnly": readOnly, "hidePasswords": hidePasswords, "manage": manage })
+                    else:
+                        # If group name not found, this is individual user permission
+                        if (debug): print("add individual ",shared_folder_name,"| username: ",user["username"])
+                        if user["username"] not in account_list:
+                            account_list[user["username"]] = []
+                        if user["can_administer"] == "1":
+                            manage = True
+                            readOnly = False
+                            hidePasswords = False
+                        else:
+                            manage = False
                             if user["readonly"] == "1":
                                 readOnly = True
                             else:
@@ -553,23 +580,7 @@ def migrate_lastpass_permissions():
                                 hidePasswords = False
                             else:
                                 hidePasswords = True
-
-                            json_group.append({  "id": group_dict_name[user["group_name"]]["id"], "readOnly": readOnly, "hidePasswords": hidePasswords })
-                    else:
-                        # If group name not found, this is individual user permission
-                        if (debug): print("add individual ",shared_folder_name,"| username: ",user["username"])
-                        if user["username"] not in account_list:
-                            account_list[user["username"]] = []
-                        if user["readonly"] == "1":
-                            readOnly = True
-                        else:
-                            readOnly = False
-
-                        if user["give"] == "1":
-                            hidePasswords = False
-                        else:
-                            hidePasswords = True
-                        account_list[user["username"]].append({ "id": collection_dict[shared_folder_name], "readOnly": readOnly  })
+                        account_list[user["username"]].append({ "id": collection_dict[shared_folder_name], "readOnly": readOnly, "hidePasswords": hidePasswords, "manage": manage  })
 
                 json_body["groups"] = json_group
                 update_collection_cli(bw_cli_session, shared_folder_name, collection_dict[shared_folder_name], json_body, bw_org_id)
@@ -1324,8 +1335,6 @@ def import_users_to_dest(f_bw_api_endpoint, f_access_token, f_member_details_lis
                         each_col["id"] = coll_dict_externalid[each_col["id"]]
             user_dict = {
                 "type": origin_user_details["type"],
-# Access All is deprecated                
-#                "accessAll": origin_user_details["accessAll"],
                 "externalId": origin_user_details["externalId"],
                 "resetPasswordEnrolled": each_dest_member["resetPasswordEnrolled"],
                 "collections": origin_user_details["collections"]
