@@ -598,7 +598,7 @@ def find_program_path(f_name):
 
     if os.path.isfile(program_path):
         # Check if 'bw' is executable
-        if os.access(bw_path, os.X_OK):
+        if os.access(program_path, os.X_OK):
             return program_path
         else:
             print(f"'{f_name}' file at {program_path} is not executable")
