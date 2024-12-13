@@ -202,7 +202,6 @@ def load_configfile(configfile):
         bw_vault_uri = config.get('config', 'bw_vault_uri')
         bw_org_client_id = config.get('config', 'bw_org_client_id')
         bw_org_client_secret = config.get('config', 'bw_org_client_secret')
-        bw_org_id = config.get('config', 'bw_org_id')
     except configparser.NoOptionError :
         print('Missing Config. Please check again the config file')
         sys.exit(1) 
@@ -210,6 +209,7 @@ def load_configfile(configfile):
     if any(v == "" or v == '""' for v in [bw_vault_uri, bw_org_client_id, bw_org_client_secret, bw_org_id]):
         print("Empty config found. Please check the config file.")
         sys.exit(2)
+    bw_org_id = bw_org_id.replace("organization.", "")
 
 
 def main(argv):
