@@ -20,3 +20,7 @@ test-*
 
 # Python
 *.pyc
+
+# MacOS X
+
+.DS_Store
