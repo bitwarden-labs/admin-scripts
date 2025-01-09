@@ -5,22 +5,30 @@ Bitwarden event Log Report Script
 =================================
 
 This script fetches event logs from the Bitwarden API within a specified date range, enriches them with user data,
-and displays the logs in a tabular format, syslog format, or saves them as a CSV.
+and displays the logs in a tabular format, syslog format, or saves them as a CSV. It also includes the ability to
+cache the Bitwarden member list for faster subsequent runs.
 
 Usage:
 ------
 python3 generateEventLogReport.py --client_id <YOUR_CLIENT_ID> --client_secret <YOUR_CLIENT_SECRET>
 
+Required Arguments:
+-------------------
+--client_id          : Your Bitwarden Client ID.
+--client_secret      : Your Bitwarden Client Secret.
+
 Optional Arguments:
 -------------------
---vault_uri           : Bitwarden Vault URI (default: "https://vault.bitwarden.com").
---api_url             : Bitwarden API URL (default: "https://api.bitwarden.com").
---start_date          : Start date for logs (default: 30 days ago).
---end_date            : End date for logs (default: today).
---output_csv          : Path to save logs as a CSV file.
---columns             : Columns to display (default: event, device, date, userName, userEmail, ipAddress).
---failed_login_attempt: Display failed login attempts (1005 and 1006).
---syslog              : Print logs in a typical syslog format.
+--vault_uri          : Bitwarden Vault URI (default: "https://vault.bitwarden.com").
+--api_url            : Bitwarden API URL (default: "https://api.bitwarden.com").
+--start_date         : Start date for logs (default: 30 days ago).
+--end_date           : End date for logs (default: today).
+--output_csv         : Path to save logs as a CSV file.
+--columns            : Columns to display (default: event, device, date, userName, userEmail, ipAddress).
+--failed_login_attempt
+                     : Display failed login attempts (events 1005 and 1006).
+--syslog             : Print logs in a typical syslog format.
+--cache_members      : Use a local cache file for member data (to speed up subsequent runs).
 
 Examples:
 ---------
@@ -34,13 +42,17 @@ Examples:
    python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --columns event date
 
 4. Fetch logs within a specific date range:
-   python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --start_date 2024-11-11T00:00:00Z --end_date 2024-11-31T23:59:59Z
+   python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET \
+       --start_date 2024-11-11T00:00:00Z --end_date 2024-11-31T23:59:59Z
 
 5. Display only failed login attempts:
    python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --failed_login_attempt
 
 6. Display logs in syslog format:
    python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --syslog
+
+7. Cache member data for faster repeated runs (avoiding repeated API calls):
+   python3 generateEventLogReport.py --client_id YOUR_CLIENT_ID --client_secret YOUR_CLIENT_SECRET --cache_members
 """
 
 import requests
@@ -53,6 +65,7 @@ from mappings import EVENT_TYPE_MAPPING, DEVICE_TYPE_MAPPING
 
 import os
 import socket
+import json
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -61,6 +74,40 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DEFAULT_VAULT_URI = "https://vault.bitwarden.com"
 DEFAULT_API_URL = "https://api.bitwarden.com"
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+# ------------------- NEW: cache file constant -------------------
+CACHE_FILE_PATH = "/tmp/bitwarden_members_cache.json"
+
+
+def load_member_cache(cache_file: str) -> Dict[str, Any]:
+    """
+    Attempt to load members from a local JSON cache file.
+    Returns an empty dict if file not found or invalid.
+    """
+    if not os.path.isfile(cache_file):
+        return {}
+
+    try:
+        with open(cache_file, 'r') as f:
+            data = json.load(f)
+            if "data" in data:  # basic validation check
+                return data
+            else:
+                return {}
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+
+def save_member_cache(cache_file: str, members: Dict[str, Any]) -> None:
+    """
+    Write members data to a local JSON file as cache.
+    """
+    try:
+        with open(cache_file, 'w') as f:
+            json.dump(members, f)
+    except IOError as e:
+        logging.warning(f"Could not write cache file '{cache_file}': {e}")
+
 
 def get_access_token(client_id: str, client_secret: str, vault_uri: str) -> str:
     url = f"{vault_uri}/identity/connect/token"
@@ -74,11 +121,13 @@ def get_access_token(client_id: str, client_secret: str, vault_uri: str) -> str:
     response.raise_for_status()
     return response.json().get('access_token')
 
+
 def get_members(api_url: str, access_token: str) -> Dict[str, Any]:
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(f"{api_url}/public/members", headers=headers)
     response.raise_for_status()
     return response.json()
+
 
 def get_event_logs(api_url: str, access_token: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -89,7 +138,7 @@ def get_event_logs(api_url: str, access_token: str, start_date: str, end_date: s
         uri = f"{api_url}/public/events?start={start_date}&end={end_date}"
         if continuation_token:
             uri += f"&continuationToken={continuation_token}"
-        
+
         response = requests.get(uri, headers=headers)
         response.raise_for_status()
         data = response.json()
@@ -101,6 +150,7 @@ def get_event_logs(api_url: str, access_token: str, start_date: str, end_date: s
             break
 
     return all_event_logs
+
 
 def enrich_event_logs(event_logs: List[Dict[str, Any]], members: Dict[str, Any]) -> List[Dict[str, Any]]:
     # Create a lookup for members
@@ -149,14 +199,15 @@ def enrich_event_logs(event_logs: List[Dict[str, Any]], members: Dict[str, Any])
             "event": event_type,
             "device": device_name
         })
-    
+
     return event_logs
+
 
 def filter_failed_login_attempts(event_logs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [log for log in event_logs if log.get('type') in [1005, 1006]]
 
+
 def display_failed_login_attempts(event_logs: List[Dict[str, Any]]) -> None:
-    # Filter failed login attempts
     failed_attempts = filter_failed_login_attempts(event_logs)
     grouped_data = {}
 
@@ -174,6 +225,7 @@ def display_failed_login_attempts(event_logs: List[Dict[str, Any]]) -> None:
         print(df.to_string(index=False))
         print("\n")
 
+
 def display_logs(event_logs: List[Dict[str, Any]], columns: List[str]) -> None:
     df = pd.DataFrame(event_logs)
     if 'date' in df.columns:
@@ -183,26 +235,23 @@ def display_logs(event_logs: List[Dict[str, Any]], columns: List[str]) -> None:
     if not existing_columns:
         logging.warning("No matching columns to display.")
         return
-    
+
     print(df[existing_columns].to_string(index=False))
+
 
 def save_to_csv(event_logs: List[Dict[str, Any]], columns: List[str], output_file: str) -> None:
     df = pd.DataFrame(event_logs)
     df.to_csv(output_file, columns=columns, index=False)
     logging.info(f"Logs saved to {output_file}")
 
+
 def display_syslog_logs(event_logs: List[Dict[str, Any]], columns: List[str]) -> None:
-    """
-    Print logs in a syslog-style format, e.g.:
-    <14>Jan 09 13:51:01 myhost generateEventLogReport.py[12345]: event=ItemCreated device=Web ...
-    """
     if not event_logs:
         logging.info("No logs available for syslog display.")
         return
 
     df = pd.DataFrame(event_logs)
 
-    # Convert 'date' column to syslog-like date
     if 'date' in df.columns:
         df['date'] = pd.to_datetime(df['date'], errors='coerce')
         df['syslog_date'] = df['date'].dt.strftime('%b %d %H:%M:%S')
@@ -215,7 +264,6 @@ def display_syslog_logs(event_logs: List[Dict[str, Any]], columns: List[str]) ->
     PRI = 14  # facility=1 (user-level), severity=6 (info) => <14>
 
     for _, row in df.iterrows():
-        # Build a message from the desired columns
         message_parts = []
         for col in columns:
             if col in row and pd.notna(row[col]):
@@ -224,18 +272,27 @@ def display_syslog_logs(event_logs: List[Dict[str, Any]], columns: List[str]) ->
         message_str = " ".join(message_parts)
         print(f"<{PRI}>{row['syslog_date']} {hostname} {script_name}[{pid}]: {message_str}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch Bitwarden event logs.")
     parser.add_argument('--client_id', required=True, help="Bitwarden Client ID")
     parser.add_argument('--client_secret', required=True, help="Bitwarden Client Secret")
     parser.add_argument('--vault_uri', default=DEFAULT_VAULT_URI, help="Bitwarden Vault URI")
     parser.add_argument('--api_url', default=DEFAULT_API_URL, help="Bitwarden API URL")
-    parser.add_argument('--start_date', default=(datetime.now() - timedelta(days=30)).strftime(DATE_FORMAT), help="Start date for logs")
+    parser.add_argument('--start_date', default=(datetime.now() - timedelta(days=30)).strftime(DATE_FORMAT),
+                        help="Start date for logs")
     parser.add_argument('--end_date', default=datetime.now().strftime(DATE_FORMAT), help="End date for logs")
     parser.add_argument('--output_csv', help="Path to CSV file to save logs")
-    parser.add_argument('--columns', nargs='+', default=["event", "device", "date", "userName", "userEmail", "ipAddress"], help="Columns to display")
-    parser.add_argument('--failed_login_attempt', action='store_true', help="Display failed login attempts (events 1005 and 1006)")
+    parser.add_argument('--columns', nargs='+',
+                        default=["event", "device", "date", "userName", "userEmail", "ipAddress"],
+                        help="Columns to display")
+    parser.add_argument('--failed_login_attempt', action='store_true',
+                        help="Display failed login attempts (events 1005 and 1006)")
     parser.add_argument('--syslog', action='store_true', help="Display logs in syslog format")
+
+    # ------------------- NEW: cache_members argument -------------------
+    parser.add_argument('--cache_members', action='store_true',
+                        help="Use local cache file instead of fetching from API if available.")
 
     args = parser.parse_args()
 
@@ -243,8 +300,20 @@ if __name__ == "__main__":
         logging.info("Fetching access token...")
         access_token = get_access_token(args.client_id, args.client_secret, args.vault_uri)
 
-        logging.info("Fetching members...")
-        members = get_members(args.api_url, access_token)
+        # ------------------- NEW: load from cache or fetch from API -------------------
+        if args.cache_members:
+            logging.info(f"Trying to load members from cache file: {CACHE_FILE_PATH}")
+            members = load_member_cache(CACHE_FILE_PATH)
+            if not members:
+                logging.info("Cache not found or invalid; fetching members from API...")
+                members = get_members(args.api_url, access_token)
+                save_member_cache(CACHE_FILE_PATH, members)
+            else:
+                logging.info("Members loaded successfully from cache.")
+        else:
+            logging.info("Caching disabled; fetching members from API...")
+            members = get_members(args.api_url, access_token)
+        # ------------------------------------------------------------------------------
 
         logging.info("Fetching event logs...")
         event_logs = get_event_logs(args.api_url, access_token, args.start_date, args.end_date)
