@@ -1,40 +1,89 @@
 #!/bin/bash
-# Depends on file "secureString.txt" which can be created as an encrypted file by replacing all references in this script to:
-# replacewithyoursupersecretstring
-# With your own encryption phrase, and then running:
-# echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
-# Assumes a list of Collections in a file named collections.csv in the current directory
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
-# openssl is required in $PATH https://www.openssl.org/
+# pre-authentication is required in the BW CLI in order to get the <SESSION KEY>
+# NOTE: Please ensure that the CSV imported into BW has been cleaned to use "/" instead of "\" (ex: Keeper uses "\" for nested folders).
 
-organization_id="YOUR-ORGANIZATION-ID" # Set your Org ID
-
-# Perform CLI auth
-
-password=$(cat secureString.txt | openssl enc -aes-256-cbc -md sha512 -a -d -pbkdf2 -iter 600001 \
- -salt -pass pass:replacewithyoursupersecretstring)
-
-session_key="$(printf $password | bw unlock --raw)"
+organizationID="<ORG_ID>" # Set your Org ID
+sessionKey="<SESSION KEY>" # Perform CLI auth with Session Key
 
 # Check for the Collection list and create any missing Collections in a loop
+listCollections=$(bw list org-collections --organizationid $organizationID --session "$sessionKey" | jq -r '.[].name')
 
-IFS=$'\n'
-for collectionname in $(cat collections.csv); do
+# Split the response into an array
+IFS=$'\n' read -r -d '' -a collections <<< "$listCollections"
 
-# Check if the Group already exists
-
-existingcollection=$(bw --session "$session_key" list org-collections --organizationid $organization_id | jq -r '.[].name' | grep -x "$collectionname")
-
-if [[ $existingcollection == $collectionname ]]; then
-
-echo "$collectionname already exists, skipping"
-
-else
-
-bw --session "$session_key" get template org-collection | jq --arg n "$collectionname" --arg c "$organization_id" '.name=$n | .organizationId=$c | del(.groups)' | bw encode | bw --quiet --session "$session_key" create org-collection --organizationid $organization_id
-echo "Created Collection for $collectionname"
-
-fi
-
+# Separate nested Collections for Parent collections
+nestedCollections=()
+parentCollections=()
+for collection in "${collections[@]}"; do
+    if [[ "$collection" == *"/"* ]]; then
+        nestedCollections+=("$collection")
+    else
+        parentCollections+=("$collection")
+    fi
 done
+
+# Output nested collections
+echo "NESTED COLLECTIONS:"
+for collection in "${nestedCollections[@]}"; do
+    echo "$collection"
+done
+
+echo "" #output spacing
+
+# Output parent collections
+echo "PARENT COLLECTIONS:"
+for collection in "${parentCollections[@]}"; do
+    echo "$collection"
+done
+
+echo "" #output spacing
+
+#create a list for collections that need to be created (ie, missing parent collections) and a placeholder for unique results
+missingParents=()
+uniqueMissingParents=()
+#extract the string before the "/" from each nested item
+for nestedItem in "${nestedCollections[@]}"; do
+    parentPart="${nestedItem%%/*}"
+    # Compare with parent items
+    match=false
+    for parent in "${parentCollections[@]}"; do
+        if [[ "$parentPart" == "$parent" ]]; then
+            match=true
+            break
+        fi
+    done
+    if ! $match; then
+         missingParents+=("$parentPart")
+    fi
+done
+
+# Iterate through the missingParents array
+for item in "${missingParents[@]}"; do
+    # Check if the item is not already in the uniqueMissingParents array
+    if [[ ! " ${uniqueMissingParents[@]} " =~ " $item " ]]; then
+        # Add the item to the uniqueMissingParents array
+        uniqueMissingParents+=("$item")
+    fi
+done
+
+# Output the uniqueMissingParents array
+ echo "Unique Missing Parents:"
+for item in "${uniqueMissingParents[@]}"; do
+    echo $item
+done
+
+echo "" #output spacing
+read -p "Do you want to continue? (y/any other input): " user_input
+
+# Check if the input is "y". If it is, create the collection
+if [[ "$user_input" == "y" || "$user_input" == "Y" ]]; then
+    for collectionname in "${uniqueMissingParents[@]}"; do
+        bw --session "$sessionKey" get template org-collection | jq --arg n "$collectionname" --arg c "$organizationID" '.name=$n | .organizationId=$c | del(.groups) | del(.users)' | bw encode | bw --session "$sessionKey" create org-collection --organizationid $organizationID
+        echo "Created Collection for $collectionname"
+    done
+else
+    echo "Exiting..."
+    exit 0
+fi
