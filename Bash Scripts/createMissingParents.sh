@@ -1,11 +1,13 @@
 #!/bin/bash
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
-# pre-authentication is required in the BW CLI in order to get the <SESSION KEY>
+# sessionKey will prompt the user with the bw interactive login, and then extract the session key
+# organizationID must be set by the user manually (found in GUI or via 'bw list organizations' in the CLI)
+# organizationID ex: organizationID="4ce1432b-c57f-4594-93dd-b25e023141f3"
 # NOTE: Please ensure that the CSV imported into BW has been cleaned to use "/" instead of "\" (ex: Keeper uses "\" for nested folders).
 
-organizationID="<ORG_ID>" # Set your Org ID
-sessionKey="<SESSION KEY>" # Perform CLI auth with Session Key
+organizationID="<SESSION KEY>" # Set your Org ID
+sessionKey=$(bw login | sed -n 's/.*\$env:BW_SESSION="\([^"]*\)".*/\1/p') #prompt user for login and extract session key
 
 # Check for the Collection list and create any missing Collections in a loop
 listCollections=$(bw list org-collections --organizationid $organizationID --session "$sessionKey" | jq -r '.[].name')
