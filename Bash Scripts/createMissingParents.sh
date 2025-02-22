@@ -6,8 +6,8 @@
 # organizationID ex: organizationID="4ce1432b-c57f-4594-93dd-b25e023141f3"
 # NOTE: Please ensure that the CSV imported into BW has been cleaned to use "/" instead of "\" (ex: Keeper uses "\" for nested folders).
 
-organizationID="<SESSION KEY>" # Set your Org ID
 sessionKey=$(bw login | sed -n 's/.*\$env:BW_SESSION="\([^"]*\)".*/\1/p') #prompt user for login and extract session key
+organizationID=$(bw list organizations --session "$sessionKey" | jq -r '.[].id') #grab the first organization ID
 
 # Check for the Collection list and create any missing Collections in a loop
 listCollections=$(bw list org-collections --organizationid $organizationID --session "$sessionKey" | jq -r '.[].name')
