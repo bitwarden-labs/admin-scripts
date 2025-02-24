@@ -6,7 +6,27 @@
 # organizationID ex: organizationID="4ce1432b-c57f-4594-93dd-b25e023141f3"
 # NOTE: Please ensure that the CSV imported into BW has been cleaned to use "/" instead of "\" (ex: Keeper uses "\" for nested folders).
 
-sessionKey=$(bw login | sed -n 's/.*\$env:BW_SESSION="\([^"]*\)".*/\1/p') #prompt user for login and extract session key
+# Get Bitwarden CLI status JSON
+bwStatus=$(bw status 2>/dev/null)
+
+# Extract the "status" field
+status=$(echo "$bwStatus" | jq -r '.status' 2>/dev/null)
+
+# Ensure status is not empty
+if [[ -z "$status" ]]; then
+    echo "Error: Unable to retrieve Bitwarden status."
+    exit 1
+fi
+
+# Determine if we need to log in or unlock
+if [[ "$status" == "unauthenticated" ]]; then
+    echo "Not logged in, attempting login..."
+    sessionKey=$(bw login | sed -n 's/.*\$env:BW_SESSION="\([^"]*\)".*/\1/p') # Prompt user for login and extract session key
+else
+    echo "Logged in, grabbing session key..."
+    sessionKey=$(bw unlock | sed -n 's/.*\$env:BW_SESSION="\([^"]*\)".*/\1/p') # Unlock vault and extract session key
+fi
+
 organizationID=$(bw list organizations --session "$sessionKey" | jq -r '.[].id') #grab the first organization ID
 
 # Check for the Collection list and create any missing Collections in a loop
@@ -64,8 +84,14 @@ done
 # Iterate through the missingParents array
 for item in "${missingParents[@]}"; do
     # Check if the item is not already in the uniqueMissingParents array
-    if [[ ! " ${uniqueMissingParents[@]} " =~ " $item " ]]; then
-        # Add the item to the uniqueMissingParents array
+    exists=false
+    for uniqueItem in "${uniqueMissingParents[@]}"; do
+        if [[ "$uniqueItem" == "$item" ]]; then
+            exists=true
+            break
+        fi
+    done
+    if ! $exists; then
         uniqueMissingParents+=("$item")
     fi
 done
