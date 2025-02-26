@@ -65,41 +65,70 @@ echo "" #output spacing
 #create a list for collections that need to be created (ie, missing parent collections) and a placeholder for unique results
 missingParents=()
 uniqueMissingParents=()
-#extract the string before the "/" from each nested item
+
+# Function to check recursively if a collection exists or needs to be created
+check_and_create_collection() {
+    local path="$1"
+    local parentPath=""
+
+    # Split the path into individual parts
+    IFS='/' read -r -a pathParts <<< "$path"
+
+    # Iterate over the parts but stop at the second-to-last part (exclude the item itself)
+    for (( i=0; i<${#pathParts[@]}-1; i++ )); do
+        part="${pathParts[$i]}"
+        
+        # Update the full parent path
+        if [ -z "$parentPath" ]; then
+            parentPath="$part"
+        else
+            parentPath="$parentPath/$part"
+        fi
+
+        # Check if the collection exists, if not, add it to missingParents
+        match=false
+        for parent in "${parentCollections[@]}"; do
+            if [[ "$parent" == "$parentPath" ]]; then
+                match=true
+                break
+            fi
+        done
+
+        if ! $match; then
+            # Add the missing collection to the list, if it's not already present
+            if [[ ! " ${missingParents[@]} " =~ " ${parentPath} " ]]; then
+                missingParents+=("$parentPath")
+            fi
+        fi
+    done
+}
+
+# Check each nested collection path recursively
 for nestedItem in "${nestedCollections[@]}"; do
-    parentPart="${nestedItem%%/*}"
-    # Compare with parent items
+    check_and_create_collection "$nestedItem"
+done
+
+# Remove duplicates and ensure no missing collection is a part of the existing nested collections
+for item in "${missingParents[@]}"; do
+    # Ensure that the missing parent is not already part of the nested collections
     match=false
-    for parent in "${parentCollections[@]}"; do
-        if [[ "$parentPart" == "$parent" ]]; then
+    for nested in "${nestedCollections[@]}"; do
+        if [[ "$nested" == "$item" ]]; then
             match=true
             break
         fi
     done
-    if ! $match; then
-         missingParents+=("$parentPart")
-    fi
-done
 
-# Iterate through the missingParents array
-for item in "${missingParents[@]}"; do
-    # Check if the item is not already in the uniqueMissingParents array
-    exists=false
-    for uniqueItem in "${uniqueMissingParents[@]}"; do
-        if [[ "$uniqueItem" == "$item" ]]; then
-            exists=true
-            break
-        fi
-    done
-    if ! $exists; then
+    # Add to uniqueMissingParents only if it's not already in nested collections
+    if ! $match; then
         uniqueMissingParents+=("$item")
     fi
 done
 
 # Output the uniqueMissingParents array
- echo "Unique Missing Parents:"
+echo "Unique Missing Parents:"
 for item in "${uniqueMissingParents[@]}"; do
-    echo $item
+    echo "$item"
 done
 
 echo "" #output spacing
