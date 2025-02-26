@@ -1,6 +1,23 @@
 #!/bin/bash
 #
-# Bitwarden Collection Creation (Sequential Execution)
+# This script automates the process of creating Bitwarden collections for
+# all active members of a Bitwarden organization using the CLI.
+#
+# Usage: ./createCollectionsForAllMembers.sh <organization_id> <secure_password_file> <secure_secret_file> <parent_collection_name>
+#
+# Setup Instructions:
+# 1. Configure Bitwarden CLI to use the correct server:
+#    $ bw config server https://vault.bitwarden.eu
+#
+# 2. Log in to Bitwarden CLI:
+#    $ bw login
+#
+# 3. Set and generate a random secure password for the environment variable 'BITWARDEN_PASS':
+#    $ export BITWARDEN_PASS=$(openssl rand -base64 32)
+#
+# 4. Encrypt your Bitwarden master password and organization secret using the generated BITWARDEN_PASS:
+#    $ echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:$BITWARDEN_PASS > secureString.txt
+#    $ echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:$BITWARDEN_PASS > secureString_secret.txt
 #
 
 set -e  # Exit on error
