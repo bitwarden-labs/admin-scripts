@@ -3,7 +3,7 @@
 # This script automates the process of creating Bitwarden collections for
 # all active members of a Bitwarden organization using the CLI.
 #
-# Usage: ./createCollectionsForAllMembers.sh <organization_id> <secure_password_file> <secure_secret_file> <parent_collection_name>
+# Usage: ./createCollectionsForAllMembers.sh <organization_id> <secure_password_file> <parent_collection_name>
 #
 # Setup Instructions:
 # 1. Configure Bitwarden CLI to use the correct server:
@@ -15,29 +15,26 @@
 # 3. Set and generate a random secure password for the environment variable 'BITWARDEN_PASS':
 #    $ export BITWARDEN_PASS=$(openssl rand -base64 32)
 #
-# 4. Encrypt your Bitwarden master password and organization secret using the generated BITWARDEN_PASS:
+# 4. Encrypt your Bitwarden master password using the generated BITWARDEN_PASS:
 #    $ echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:$BITWARDEN_PASS > secureString.txt
-#    $ echo 'YOUR_ORG_SECRET_KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:$BITWARDEN_PASS > secureString_secret.txt
 #
-
 set -e  # Exit on error
 
 # Usage Information
 show_help() {
-  echo "Usage: $0 <organization_id> <secure_password_file> <secure_secret_file> <parent_collection_name>"
+  echo "Usage: $0 <organization_id> <secure_password_file> <parent_collection_name>"
   exit 0
 }
 
 # Check arguments
-if [[ $# -lt 4 ]]; then
+if [[ $# -lt 3 ]]; then
   show_help
 fi
 
 # Parameters
 organization_id=$1
 secure_password_file=$2
-secure_secret_file=$3
-parent_collection_name=$4
+parent_collection_name=$3
 num_iterations=600001
 log_file="bitwarden_script.log"
 
@@ -68,7 +65,6 @@ if [[ -z "$BITWARDEN_PASS" ]]; then
 fi
 
 # Decrypt Credentials
-org_client_secret_key=$(decrypt_secret "$secure_secret_file")
 password=$(decrypt_secret "$secure_password_file")
 
 # Unlock Bitwarden CLI session
@@ -127,7 +123,7 @@ echo "$org_members" | jq -c '.' | while read -r member; do
     
     collection_id=$(bw --session "$session_key" get template org-collection \
       | jq -c --arg n "$collection_name" --arg c "$organization_id" --arg uid "$member_id" \
-          '.name=$n | .organizationId=$c | .groups |= map(.readOnly=false | .hidePasswords=false | .manage=true) | .users=[{"id":$uid, "readOnly":false, "hidePasswords":false, "manage":true}]' \
+          '.name=$n | .organizationId=$c | .externalId=$uid | .groups |= map(.readOnly=false | .hidePasswords=false | .manage=true) | .users=[{"id":$uid, "readOnly":false, "hidePasswords":false, "manage":true}]' \
       | bw encode \
       | bw --session "$session_key" create org-collection --organizationid "$organization_id" \
       | jq -r '.id') || handle_error "Failed to create collection for $member_name"
@@ -137,23 +133,6 @@ echo "$org_members" | jq -c '.' | while read -r member; do
     log "⏭️  Collection '$collection_name' already exists, skipping."
     collection_id=$existing_collection_id
   fi
-
-  # Assign the user explicitly to the collection
-  log "🔑 Assigning user '$member_name' (ID: $member_id) to collection '$collection_name'"
-
-  # Fetch the current collection data
-  collection_data=$(bw --session "$session_key" get org-collection "$collection_id" --organizationid "$organization_id") || handle_error "Failed to retrieve collection data for $collection_name"
-
-  # Add the user to the 'users' array with correct permissions
-  updated_collection=$(echo "$collection_data" | jq -c --arg uid "$member_id" \
-    '.users += [{"id": $uid, "readOnly": false, "hidePasswords": false, "manage": true}]')
-
-  # Update the collection with the new user assignment (suppress output)
-  echo "$updated_collection" | bw encode \
-    | bw --session "$session_key" edit org-collection "$collection_id" --organizationid "$organization_id" > /dev/null \
-    || handle_error "Failed to assign user $member_name to collection $collection_name"
-
-  log "✅ User '$member_name' assigned to collection '$collection_name'"
 
 done
 
