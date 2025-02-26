@@ -18,6 +18,7 @@
 # 4. Encrypt your Bitwarden master password using the generated BITWARDEN_PASS:
 #    $ echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:$BITWARDEN_PASS > secureString.txt
 #
+
 set -e  # Exit on error
 
 # Usage Information
@@ -116,22 +117,27 @@ echo "$org_members" | jq -c '.' | while read -r member; do
   collection_name="$parent_collection_name/$member_name"
 
   # Check if collection already exists
-  existing_collection_id=$(bw --session "$session_key" list org-collections --organizationid "$organization_id" | jq -r ".[] | select(.name == \"$collection_name\") | .id")
+  existing_collection_id=$(bw --session "$session_key" list org-collections --organizationid "$organization_id" | jq -r ".[] | select(.externalId == \"$member_id\") | .id")
 
-  if [[ -z "$existing_collection_id" ]]; then
-    log "📂 Creating collection: $collection_name"
+  if [[ -n "$existing_collection_id" ]]; then
+    log "🔄 Updating collection '$existing_collection_id' name to '$collection_name' while preserving all attributes."
+    existing_collection=$(bw --session "$session_key" get org-collection "$existing_collection_id" --organizationid "$organization_id") || handle_error "Failed to retrieve collection data for $collection_name"
     
+    updated_collection=$(echo "$existing_collection" | jq -c --arg name "$collection_name" '.name = $name')
+    
+    echo "$updated_collection" | bw encode \
+      | bw --session "$session_key" edit org-collection "$existing_collection_id" --organizationid "$organization_id" > /dev/null \
+      || handle_error "Failed to update collection $collection_name"
+    log "✅ Collection '$collection_name' updated."
+  else
+    log "📂 Creating collection: $collection_name"
     collection_id=$(bw --session "$session_key" get template org-collection \
       | jq -c --arg n "$collection_name" --arg c "$organization_id" --arg uid "$member_id" \
-          '.name=$n | .organizationId=$c | .externalId=$uid | .groups |= map(.readOnly=false | .hidePasswords=false | .manage=true) | .users=[{"id":$uid, "readOnly":false, "hidePasswords":false, "manage":true}]' \
+          '.name=$n | .organizationId=$c | .externalId=$uid | .users=[{"id":$uid, "readOnly":false, "hidePasswords":false, "manage":true}]' \
       | bw encode \
       | bw --session "$session_key" create org-collection --organizationid "$organization_id" \
       | jq -r '.id') || handle_error "Failed to create collection for $member_name"
-    
     log "✅ Created Collection '$collection_name' for member '$member_name'."
-  else
-    log "⏭️  Collection '$collection_name' already exists, skipping."
-    collection_id=$existing_collection_id
   fi
 
 done
