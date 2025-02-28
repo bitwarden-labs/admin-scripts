@@ -2,8 +2,7 @@
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
 # sessionKey will prompt the user with the bw interactive login, and then extract the session key
-# organizationID must be set by the user manually (found in GUI or via 'bw list organizations' in the CLI)
-# organizationID ex: organizationID="4ce1432b-c57f-4594-93dd-b25e023141f3"
+# organizationID will grab the first organization ID from the bw list organizaitons command
 # NOTE: Please ensure that the CSV imported into BW has been cleaned to use "/" instead of "\" (ex: Keeper uses "\" for nested folders).
 
 # Get Bitwarden CLI status JSON
@@ -32,6 +31,7 @@ organizationID=$(bw list organizations --session "$sessionKey" | jq -r '.[].id')
 # Check for the Collection list and create any missing Collections in a loop
 listCollections=$(bw list org-collections --organizationid $organizationID --session "$sessionKey" | jq -r '.[].name')
 
+
 # Split the response into an array
 IFS=$'\n' read -r -d '' -a collections <<< "$listCollections"
 
@@ -46,20 +46,6 @@ for collection in "${collections[@]}"; do
     fi
 done
 
-# Output nested collections
-echo "NESTED COLLECTIONS:"
-for collection in "${nestedCollections[@]}"; do
-    echo "$collection"
-done
-
-echo "" #output spacing
-
-# Output parent collections
-echo "PARENT COLLECTIONS:"
-for collection in "${parentCollections[@]}"; do
-    echo "$collection"
-done
-
 echo "" #output spacing
 
 #create a list for collections that need to be created (ie, missing parent collections) and a placeholder for unique results
@@ -70,12 +56,12 @@ uniqueMissingParents=()
 check_and_create_collection() {
     local path="$1"
     local parentPath=""
-
+    
     # Split the path into individual parts
     IFS='/' read -r -a pathParts <<< "$path"
 
-    # Iterate over the parts but stop at the second-to-last part (exclude the item itself)
-    for (( i=0; i<${#pathParts[@]}-1; i++ )); do
+    # Iterate over the parts and check all intermediate paths
+    for (( i=0; i<${#pathParts[@]}; i++ )); do
         part="${pathParts[$i]}"
         
         # Update the full parent path
@@ -88,15 +74,25 @@ check_and_create_collection() {
         # Check if the collection exists, if not, add it to missingParents
         match=false
         for parent in "${parentCollections[@]}"; do
+            # Perform exact comparison for intermediate paths
             if [[ "$parent" == "$parentPath" ]]; then
                 match=true
                 break
             fi
         done
 
+        # If no match is found, mark it as a missing parent
         if ! $match; then
             # Add the missing collection to the list, if it's not already present
-            if [[ ! " ${missingParents[@]} " =~ " ${parentPath} " ]]; then
+            already_present=false
+            for existing in "${missingParents[@]}"; do
+                if [[ "$existing" == "$parentPath" ]]; then
+                    already_present=true
+                    break
+                fi
+            done
+
+            if ! $already_present; then
                 missingParents+=("$parentPath")
             fi
         fi
@@ -110,7 +106,6 @@ done
 
 # Remove duplicates and ensure no missing collection is a part of the existing nested collections
 for item in "${missingParents[@]}"; do
-    # Ensure that the missing parent is not already part of the nested collections
     match=false
     for nested in "${nestedCollections[@]}"; do
         if [[ "$nested" == "$item" ]]; then
