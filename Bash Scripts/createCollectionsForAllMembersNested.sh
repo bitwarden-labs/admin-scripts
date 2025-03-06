@@ -68,27 +68,3 @@ else
 fi
 
 done
-
-
-
-
-for member in ${org_members[@]}; do
-
-    if (echo $all_collections | jq -r '.[].name' | grep -x "Personal Collections/$member" > /dev/null); then
-    echo "$member already has a Collection, skipping"
-
-else
-
-    memberid="$(jq -r -c --arg n "$member" '.data[] | select(.email==$n) | .id' <<< "$allorgmembers")"
-
-    collectionid="$(echo $collection_template \
-	| jq -c --arg n "$member" --arg c "$organization_id" --arg m "$memberid" \
-	'.name="Personal Collections/" + $n | .organizationId=$c | del(.groups[1]) | del(.groups[0]) | del(.users[1]) | .users[0].id= $m | .users[0].manage=true' \
-	| bw encode \
-	| bw create org-collection --organizationid $organization_id \
-	| jq -r '.id')"
-
-    echo "Created Collection for $member"
-fi
-
-done
