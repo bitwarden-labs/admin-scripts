@@ -8,7 +8,8 @@
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
 # openssl is required in $PATH https://www.openssl.org/
 
-organization_id="YOUR-ORG-ID" # Set your Org ID
+organization_id="<ORG ID>" # Set your Org ID (ex: "1de1001b-d10f-1001-01dd-b10e010011f1")
+parentCollection="<PARENT COLLECTION NAME>" # Set your Parent Collection name (ex: "Personal Collections")
 
 cloud_flag=1 # Self-hosted Bitwarden or Cloud?
 if [ $cloud_flag == 1 ]; then
@@ -46,6 +47,25 @@ allorgmembers="$(curl -sX GET $api_url/public/members \
 	| jq 'del(.object)')"
 
 org_members="$(jq -r '.data[] | select(.status == 2) | .email' <<< "$allorgmembers")"
+
+echo $org_members
+
+#check if Parent collection exists
+parentExists=0
+listCollections=$(bw list org-collections --organizationid $organization_id | jq -r '.[].name')
+IFS=$'\n' read -r -d '' -a collections <<< "$listCollections"
+for collection in "${collections[@]}"; do
+    if [[ "$collection" == $parentCollection ]]; then
+        parentExists=1
+		break
+    fi
+done
+
+#create Parent Collection if it does not exist
+if [ $parentExists == 0 ]; then
+	echo "Parent Collection does not exist...creating $parentCollection"
+	bw get template org-collection | jq --arg n "$parentCollection" --arg c "$organization_id" '.name=$n | .organizationId=$c | del(.groups) | del(.users)' | bw encode | bw create org-collection --organizationid $organization_id
+fi
 
 #Loop over all users and create a collection with their e-mail
 for member in ${org_members[@]}; do
