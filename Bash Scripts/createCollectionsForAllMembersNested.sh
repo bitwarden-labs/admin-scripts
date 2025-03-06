@@ -48,8 +48,6 @@ allorgmembers="$(curl -sX GET $api_url/public/members \
 
 org_members="$(jq -r '.data[] | select(.status == 2) | .email' <<< "$allorgmembers")"
 
-echo $org_members
-
 #check if Parent collection exists
 parentExists=0
 listCollections=$(bw list org-collections --organizationid $organization_id | jq -r '.[].name')
