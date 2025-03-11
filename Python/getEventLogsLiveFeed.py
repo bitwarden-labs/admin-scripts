@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.9
 
 """
 This script fetches event logs from the Bitwarden API in live mode, only grabbing newly created logs each iteration.
@@ -357,3 +357,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+TODO: Check syslog RFC5424 format
+TODO: add requirements.txt with:
+- requests
+- pandas
+- python-dateutil
+"""
