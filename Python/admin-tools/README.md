@@ -21,9 +21,10 @@ To migrate shared folder permissions from LastPass:
 
 `python3 bwAdminTools.py -c migratelp -f myconfig.cfg`
 
-To migrate permissions from & to Bitwarden servers:
+To migrate attachments from & to Bitwarden servers:
 
-`python3 bwAdminTools.py -c migratebw -f myconfig.cfg`
+`python3 bwAdminTools.py -c migrateattachments -f myconfig.cfg`
+
 
 ## Config File Description
 
