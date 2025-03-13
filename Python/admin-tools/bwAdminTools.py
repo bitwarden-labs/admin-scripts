@@ -23,8 +23,10 @@ import getpass
 import shutil
 import uuid
 import random
+from pathlib import Path
 
 EXPORT_FILE_NAME="export.json"
+APPDATA_DIR="clidatadir"
 
 bw_vault_uri = ""
 bw_identity_endpoint = ""
@@ -67,6 +69,16 @@ script_location = os.path.dirname(os.path.abspath(__file__))
 def create_guid():
     return str(uuid.uuid4())
 
+def ask_yes_no(question):
+    while True:
+        response = input(f"{question} (Y/N): ").strip().lower()
+        if response in ('y', 'yes'):
+            return True
+        elif response in ('n', 'no'):
+            return False
+        else:
+            print("Invalid input. Please enter Y or N.")
+            
 def delete_all_collections(f_bw_identity_endpoint, f_bw_api_endpoint, f_bw_org_client_id, f_bw_org_client_secret):
     global access_token
     if access_token == "":
@@ -627,7 +639,7 @@ def find_program_path(f_name):
     return ""
 
 def initial_environment_check():
-    global bw_path
+    global bw_path, script_location
     # meant for checking things
     # maybe download the CLI?
     is_writable = os.access(script_location, os.W_OK)
@@ -639,6 +651,10 @@ def initial_environment_check():
     if bw_path == "":
         print("Bitwarden CLI (bw) is not found in the system")
         sys.exit(2)
+
+    appdata_dir = os.path.join(script_location, APPDATA_DIR)
+    os.makedirs(appdata_dir, exist_ok=True)
+    os.environ["BITWARDENCLI_APPDATA_DIR"]  = appdata_dir  
 
 def get_account_password(f_info):
 
@@ -669,30 +685,37 @@ def delete_all_export_files():
 
 def login_on_cli(f_bw_vault_uri, f_bw_acc_client_id, f_bw_acc_client_secret, f_bw_acc_password):
     f_cli_session = ""
-
     os.environ["BW_CLIENTID"] = f_bw_acc_client_id
     os.environ["BW_CLIENTSECRET"] = f_bw_acc_client_secret
     os.environ["BW_PASSWORD"] = f_bw_acc_password
-    output = subprocess.check_output([bw_path, 'status'])
-    output_str = output.decode('utf-8')
-    data = json.loads(output_str)
 
-    if not data["status"] == "unauthenticated":
-        subprocess.run([bw_path, 'logout', '--raw'])
-    if f_bw_vault_uri == "https://vault.bitwarden.com/":
-        subprocess.run([bw_path, 'config', 'server', 'null', '--raw'])
-    else:
-        subprocess.run([bw_path, 'config', 'server', f_bw_vault_uri, '--raw'])
+    # clearing data dir before logging in
+    directory = Path(os.environ["BITWARDENCLI_APPDATA_DIR"])
 
-    os.environ["BW_CLIENTID"] = f_bw_acc_client_id
-    os.environ["BW_CLIENTSECRET"] = f_bw_acc_client_secret
+    # Remove all files in the directory
+    for file in directory.iterdir():
+        if file.is_file():
+            file.unlink()   
+    Path(f"{directory}/data.json").touch()
+
+    # output = subprocess.check_output([bw_path, 'status'])
+    # output_str = output.decode('utf-8')
+    # data = json.loads(output_str)
+
+    # if not data["status"] == "unauthenticated":
+    
+    #subprocess.run([bw_path, 'logout', '--raw'])
+
+    subprocess.run([bw_path, 'config', 'server', f_bw_vault_uri, '--raw'])
+
+    #os.environ["BW_CLIENTID"] = f_bw_acc_client_id
+    #os.environ["BW_CLIENTSECRET"] = f_bw_acc_client_secret
     try:        
-        subprocess.run([bw_path, 'login', '--apikey', '--raw'])
+        output = subprocess.check_output([bw_path, 'login', '--apikey', '--raw'])
     except subprocess.CalledProcessError as e:
         print(f"There is an issue logging in to your origin server. Exit code: {e.returncode}\nError: {e.stderr}")
         exit(1)
-
-
+    
     try:
         output = subprocess.check_output([bw_path, 'unlock', '--passwordenv', 'BW_PASSWORD', '--raw'])
         output_str = output.decode('utf-8')
@@ -704,7 +727,7 @@ def login_on_cli(f_bw_vault_uri, f_bw_acc_client_id, f_bw_acc_client_secret, f_b
     os.environ["BW_PASSWORD"] = ""
     os.environ["BW_CLIENTSECRET"] = ""
 
-    if (debug) and (f_cli_session):
+    if (debug or showprogress) and (f_cli_session):
         print("Login on CLI is successful")
 
     return f_cli_session
@@ -846,6 +869,157 @@ def export_attachments_from_origin_v2(f_bw_cli_session):
         exit(2)
 
     return True
+
+def export_attachments_from_origin_v3(f_bw_cli_session):
+    # export data and all attachments
+
+    #exporting data in unencrypt JSON format
+    sync_cli(f_bw_cli_session)
+
+    attach_dir_path = os.path.join(script_location ,"attachments")
+
+    try:
+        os.mkdir(attach_dir_path)
+    except OSError as e:
+        print(f"Error: {e.strerror}.")
+
+    #command = [bw_path, "list", "collections", "--organizationid", bw_org_id, "--session", f_bw_cli_session]
+    #output = subprocess.check_output(command)
+
+    #output_str = output.decode('utf-8')
+    #data_collections = json.loads(output_str)
+
+    #existing_cols = []
+    #for each_col in data_collections:
+    #    existing_cols.append(each_col["id"])
+
+    command = [bw_path, "list", "items", "--organizationid", bw_org_id, "--session", f_bw_cli_session]
+    output = subprocess.check_output(command)
+
+    output_str = output.decode('utf-8')
+    data_items = json.loads(output_str)
+
+    if (debug):
+        print("Loading items list from CLI. Number of items: ",len(data_items))
+        print("")
+
+    for item in data_items:
+            if "attachments" in item:
+
+                #create a collection for that item
+                #new_col_id = create_guid()
+                #while new_col_id in existing_cols:
+                #    new_col_id = create_guid()
+                
+                #new_col_dict = {"id": new_col_id, "organizationId": bw_org_id, "externalid": None, "name": item['id'], "groups": [] }
+                #data_collections.append(new_col_dict)
+                #existing_cols.append(new_col_id)
+
+                #item["collectionIds"].append(new_col_id)
+
+                attachment_dir = os.path.join(attach_dir_path, item["name"])
+                
+                try:
+                    os.mkdir(attachment_dir)
+                except OSError as e:
+                    print(f"Error: {e.strerror}.")
+
+                for attachment in item["attachments"]:
+                    if (debug):
+                        print("Saving attachment:", os.path.join(attachment_dir, attachment['fileName']))
+                    subprocess.run([
+                        bw_path, 
+                        "get", 
+                        "attachment", 
+                        attachment['fileName'],
+                        "--itemid", 
+                        str(item['id']), 
+                        "--output", 
+                        os.path.join(attachment_dir, attachment['fileName']),
+                        "--session", 
+                        f_bw_cli_session,
+                        "--raw"
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            #item["collectionIds"] = list(set(item["collectionIds"]))
+
+
+    #data_export = {"encrypted": False, "collections": data_collections, "items": data_items}
+
+    #write the modiied export file again
+    # try:
+    #     # Open the JSON file in write mode, which will overwrite any existing file
+    #     with open(EXPORT_FILE_NAME, 'w', encoding='utf-8') as json_file:
+    #         # Write the data to the JSON file
+    #         json.dump(data_export, json_file, indent=4)
+
+    # except Exception as e:
+    #     print(f"Error writing new export file: {e}")
+    #     exit(2)
+
+    return True
+
+
+def import_attachments_to_destination_v3(f_dest_bw_cli_session):
+    global dest_bw_org_id
+    #sync_cli(f_dest_bw_cli_session)
+    # specify the directory you want to check
+    directory_path = os.path.join(script_location , "attachments")
+
+    # check if the directory exists
+    if os.path.isdir(directory_path):
+        if (debug) or showprogress:
+            print("Importing attachments")    
+        # list all the directories inside it
+        all_subdirectories = [name for name in os.listdir(directory_path) 
+                            if os.path.isdir(os.path.join(directory_path, name))]
+        
+        # list all files in the subdirectories
+        for subdir in all_subdirectories:
+            if debug or showprogress:
+                print(f"Processing {subdir} directory")
+                
+            #get the collection id
+            output = subprocess.check_output([bw_path, 'list', 'items', '--search', subdir, '--session', f_dest_bw_cli_session])
+
+            output_str = output.decode('utf-8')
+            new_item_arr = json.loads(output_str)
+            if len(new_item_arr) > 0:
+                new_item_dict = new_item_arr.pop()
+                subdir_path = os.path.join(directory_path, subdir)
+                
+                for dirpath, dirnames, filenames in os.walk(subdir_path):
+                    for filename in filenames:
+                        if (debug):
+                            print(f"Importing file {filename}")
+                            
+                        full_path_filename = os.path.join(subdir_path, filename)
+                        
+                        command = [
+                            bw_path, 
+                            "create", 
+                            "attachment",
+                            "--file",
+                            full_path_filename,
+                            "--itemid", 
+                            str(new_item_dict['id']),
+                            "--session", 
+                            f_dest_bw_cli_session,
+                            "--raw"
+                        ]
+                        if (debug):
+                            print(f"Importing command: {command}")
+
+                        output = subprocess.check_output(command)
+
+                        output_str = output.decode('utf-8')
+                        attach_item_details = json.loads(output_str)
+
+                        if (debug or showprogress) and (len(attach_item_details)>0):
+                            print("Importing Attachment Successful. Item Name: ",attach_item_details["name"])
+                        
+            else:
+                print(f"item is not found. unable to import attachment")
+            
 
 def import_attachments_to_destination_v2(f_dest_bw_cli_session):
     global dest_bw_org_id
@@ -1059,7 +1233,7 @@ def load_permissions_from_origin_API(f_bw_cli_session):
 
     if len(coll_dict) > 0:
         # There are collections. Do something
-        print("There are collections. Do something")    
+        #print("There are collections. Do something")    
 
         # login to API if access token is still empty
         if access_token == "":
@@ -1279,15 +1453,6 @@ def rewrite_export_file(f_new_coll_id):
 def migrate_bw2bw_roles():
     return 0
 
-def add_attachments():
-    global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password, dest_bw_acc_password
-    initial_environment_check()
-
-    dest_bw_acc_password = get_account_password("destination")
-    dest_bw_cli_session = login_on_cli(dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password)
-    import_attachments_to_destination(dest_bw_cli_session, f_new_coll_name)
-    return 0
-
 def export_data_complete_bw():
     global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password
 
@@ -1372,8 +1537,8 @@ def migrate_groups_and_perms():
     global script_location, dest_bw_org_id
 
     initial_environment_check()
-    #bw_acc_password = get_account_password("source")
-    #dest_bw_acc_password = get_account_password("destination")
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
 
     ##read password from file for development only
     # with open("source_pass.txt", 'r') as file:
@@ -1398,7 +1563,7 @@ def migrate_groups_and_perms():
 
     print("** Exporting data from source server...")
     ##export_attachments_from_origin_v2(bw_cli_session)
-    file_export = os.path.join(script_location, EXPORT_FILE_NAME)
+    #file_export = os.path.join(script_location, EXPORT_FILE_NAME)
 
     #export_vault(bw_cli_session, bw_org_id, "json", file_export)
 
@@ -1428,8 +1593,168 @@ def migrate_groups_and_perms():
     ##import_permissions_to_dest_cli_v2(dest_bw_cli_session, access_token, coll_list_by_name)
     import_group_permissions_to_dest_API(dest_bw_cli_session, access_token, group_list)
 
-    return True
 
+
+def migrate_attachment():
+    global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password
+    global dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password
+    global access_token, bw_api_endpoint, bw_identity_endpoint, bw_org_id
+    global script_location, dest_bw_org_id
+
+    initial_environment_check()
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
+
+    ##read password from file for development only
+    # with open("source_pass.txt", 'r') as file:
+    #     bw_acc_password = file.read()
+    # with open("destination_pass.txt", 'r') as file:
+    #     dest_bw_acc_password = file.read()
+
+    #cleanup before starting new import
+    delete_all_export_files()
+    
+    bw_acc_password = bw_acc_password.strip()
+    dest_bw_acc_password = dest_bw_acc_password.strip()
+
+    bw_cli_session = login_on_cli(bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password)
+
+    #check_duplicate_names(bw_cli_session, access_token, bw_api_endpoint, bw_org_id)
+
+    print("** Exporting attachments from source server...")
+    export_attachments_from_origin_v3(bw_cli_session)
+ 
+    print("** Importing attachments to destination server...")
+    dest_bw_cli_session = login_on_cli(dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password)
+    import_attachments_to_destination_v3(dest_bw_cli_session)
+
+
+
+def migrate_vault():
+    global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password
+    global dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password
+    global access_token, bw_api_endpoint, bw_identity_endpoint, bw_org_id
+    global script_location, dest_bw_org_id
+
+    initial_environment_check()
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
+
+    ##read password from file for development only
+    # with open("source_pass.txt", 'r') as file:
+    #   bw_acc_password = file.read()
+    # with open("destination_pass.txt", 'r') as file:
+    #   dest_bw_acc_password = file.read()
+
+    # bw_acc_password = bw_acc_password.strip()
+    # dest_bw_acc_password = dest_bw_acc_password.strip()
+
+    #cleanup before starting new import
+    delete_all_export_files()
+
+
+    bw_cli_session = login_on_cli(bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password)
+
+    if access_token == "":
+        access_token = login_to_bw_public_api(bw_identity_endpoint,bw_org_client_id,bw_org_client_secret)
+
+
+    check_duplicate_names(bw_cli_session, access_token, bw_api_endpoint, bw_org_id)
+
+    print("** Exporting data from source server...")
+
+    ##export_attachments_from_origin_v2(bw_cli_session)
+    file_export = os.path.join(script_location, EXPORT_FILE_NAME)
+    export_vault(bw_cli_session, bw_org_id, "json", file_export)
+
+    print("** Loading permissions data from source server...")
+
+    #Login to Destination Public API
+    
+    access_token = login_to_bw_public_api(dest_bw_identity_endpoint, dest_bw_org_client_id, dest_bw_org_client_secret)
+
+    print("** Importing data to destination server...")
+    dest_bw_cli_session = login_on_cli(dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password)
+    
+    #import_data_to_destination_v2(dest_bw_cli_session) 
+    import_vault(dest_bw_cli_session, dest_bw_org_id, "bitwardenjson", file_export)
+
+
+def migrate_data_bw_to_bw_v3():
+    global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password
+    global dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password
+    global access_token, bw_api_endpoint, bw_identity_endpoint, bw_org_id
+
+    initial_environment_check()
+
+    migrate_items = ask_yes_no("Do you want to migrate vault items?")
+    migrate_attachments = ask_yes_no("Do you want to migrate attachments?")
+    migrate_grp_perms = ask_yes_no("Do you want to migrate groups and group-based collection permissions?")
+    migrate_group_membership = ask_yes_no("Do you want to migrate group membership?")
+
+
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
+
+    ##read password from file for development only
+    # with open("source_pass.txt", 'r') as file:
+    #   bw_acc_password = file.read()
+    # with open("destination_pass.txt", 'r') as file:
+    #   dest_bw_acc_password = file.read()
+
+    # bw_acc_password = bw_acc_password.strip()
+    # dest_bw_acc_password = dest_bw_acc_password.strip()
+
+
+    #cleanup before starting new import
+    delete_all_export_files()
+
+    bw_cli_session = login_on_cli(bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password)
+
+    if access_token == "":
+        access_token = login_to_bw_public_api(bw_identity_endpoint,bw_org_client_id,bw_org_client_secret)
+
+
+    check_duplicate_names(bw_cli_session, access_token, bw_api_endpoint, bw_org_id)
+
+
+    file_export = os.path.join(script_location, EXPORT_FILE_NAME)
+    
+    if migrate_items:
+        print("** Exporting vault items...")
+        export_vault(bw_cli_session, bw_org_id, "json", file_export)
+
+    if migrate_attachments:
+        print("** Exporting attachments...")
+        export_attachments_from_origin_v3(bw_cli_session)
+        
+    if migrate_grp_perms:
+        print("** Exporting groups and permissions")
+        group_list = load_permissions_from_origin_API(bw_cli_session)
+    
+    if migrate_group_membership:
+        print("** Exporting group members")
+        groups_members_dict = load_groups_members(bw_api_endpoint, access_token)
+        
+    dest_bw_cli_session = login_on_cli(dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password)
+    access_token = login_to_bw_public_api(dest_bw_identity_endpoint, dest_bw_org_client_id, dest_bw_org_client_secret)
+    
+
+    if migrate_items:
+        print("** Importing vault items...")
+        import_vault(dest_bw_cli_session, dest_bw_org_id, "bitwardenjson", file_export)
+
+    if migrate_attachments:
+        print("** Importing attachments to destination server...")
+        import_attachments_to_destination_v3(dest_bw_cli_session)
+
+    if migrate_grp_perms:
+        print("** Importing groups and collection permissions")
+        import_group_permissions_to_dest_API(dest_bw_cli_session, access_token, group_list)
+
+    if migrate_group_membership:
+        print("** Importing group members")
+        migrate_groups_members(dest_bw_api_endpoint, access_token, groups_members_dict)
 
 
 def migrate_data_bw_to_bw_group_based():
@@ -1439,8 +1764,8 @@ def migrate_data_bw_to_bw_group_based():
     global script_location, dest_bw_org_id
 
     initial_environment_check()
-    #bw_acc_password = get_account_password("source")
-    #dest_bw_acc_password = get_account_password("destination")
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
 
     ##read password from file for development only
     # with open("source_pass.txt", 'r') as file:
@@ -1493,7 +1818,6 @@ def migrate_data_bw_to_bw_group_based():
     ##import_permissions_to_dest_cli_v2(dest_bw_cli_session, access_token, coll_list_by_name)
     import_group_permissions_to_dest_API(dest_bw_cli_session, access_token, group_list)
 
-    return True
 
 def migrate_data_bw_to_bw_v2():
     global bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password
@@ -1877,7 +2201,9 @@ def print_help():
     sys.stdout.write("%-20s %-50s\n" % ("-f, --config","File contains BW and LP configurations. Default: config.cfg"))
     print("")
     print("Commands:")
-    #sys.stdout.write("%-20s %-50s\n" % ("migratebw","To migrate from one Bitwarden server to another server"))
+    #sys.stdout.write("%-20s %-50s\n" % ("migratebw2bw","To migrate data from one Bitwarden server to another server")) migrateattachments
+    sys.stdout.write("%-20s %-50s\n" % ("migratevault","To migrate vault items using export import"))
+    sys.stdout.write("%-20s %-50s\n" % ("migrateattachments","To migrate attachments from one Bitwarden server to another"))
     sys.stdout.write("%-20s %-50s\n" % ("migrategroupandperms","To migrate groups and collection permission from one Bitwarden server to another"))
     sys.stdout.write("%-20s %-50s\n" % ("migrateuserperms","To migrate individual users collection permission from one Bitwarden server to another"))
     sys.stdout.write("%-20s %-50s\n" % ("migrategroupmembers","To migrate group membership from one Bitwarden server to another server"))
@@ -1887,8 +2213,8 @@ def print_help():
     sys.stdout.write("%-20s %-50s\n" % ("migratelp","To migrate shared folder permissions from Lastpass"))
     print("")
     print("Examples:")
-    print("python3 bwAdminTools.py -c migratebw")
-    print("python3 bwAdminTools.py -c migratebwusers -f myconfig.cfg ")
+    print("python3 bwAdminTools.py -c migrateattachments")
+    print("python3 bwAdminTools.py -c migrategroupandperms -f myconfig.cfg ")
 
 def load_configfile_lastpass(config):
     global lp_cid, lp_api_secret, lp_api_uri
@@ -2043,7 +2369,7 @@ def load_configfile(configfile, command):
     load_configfile_basic(config)
     if command in ["migratebw","migratebwv2","migratecolextid","migratebwusers", "migrategroupmembers","migrategroupandperms","migrateuserperms"]:
         load_configfile_bw2bw(config)
-    elif command in ["diffbw","exportperm","purgecoldest","purgegroupdest","importdata"]:
+    elif command in ["diffbw","exportperm","purgecoldest","purgegroupdest","importdata","migratevault","migrateattachments","migratebw2bw"]:
         load_configfile_bw2bw(config)
     elif command in ["migratesf", "migratelp"]:
         load_configfile_lastpass(config)
@@ -2097,11 +2423,15 @@ def main(argv):
         migrate_data_bw_to_bw_v2()
     elif command == "migratebwv2":
         migrate_data_bw_to_bw_group_based()
+    elif command == "migratebw2bw":
+        migrate_data_bw_to_bw_v3()
     elif command == "migrategroupandperms":
         migrate_groups_and_perms()
-    elif command == "addattachment":
-        add_attachments()
-    elif command == "migratebwusers": #migrateuserperms
+    elif command == "migratevault":
+        migrate_vault()
+    elif command == "migrateattachments":
+        migrate_attachment()
+    elif command == "migratebwusers": 
         migrate_users_perms_bw_to_bw()
     elif command == "migrateuserperms": 
         migrate_users_perms_bw_to_bw()
