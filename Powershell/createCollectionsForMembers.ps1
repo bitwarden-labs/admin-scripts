@@ -79,10 +79,7 @@ else {
 
 if ($memberstatus -eq 2) {
 
-$collectionid = (bw --session $session_key get template org-collection | jq --arg n "$membername" --arg c "$organization_id" '.name="$n" | .organizationId="$c" | del(.groups[1])' | bw encode | bw --session $session_key create org-collection --organizationid $organization_id | jq -r '.id')
-$origmemberbody = Invoke-RestMethod -Method GET -Uri $api_url/public/members/$memberid -Headers $headers | ConvertTo-Json | jq 'del(.object)'
-$newmemberbody = ($origmemberbody | jq --arg newcol "$collectionid" '.collections += [{"id": "$newcol", "readOnly": false, "hidePasswords": false, "manage": true}]')
-$newmemberput = Invoke-RestMethod -Method PUT -Uri $api_url/public/members/$memberid -Headers $headers -Body $newmemberbody
+$collectionid = (bw --session $session_key get template org-collection | jq --arg n "$membername" --arg c "$organization_id" --arg u "$memberid" '.name="$n" | .organizationId="$c" | .users=[{"id":$u, "readOnly":false, "hidePasswords":false, "manage":true}]' | bw encode | bw --session $session_key create org-collection --organizationid $organization_id | jq -r '.id')
 Write-Host "`n`n Created Collection for $membername"
 
 }
