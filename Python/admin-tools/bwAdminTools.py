@@ -1358,7 +1358,6 @@ def import_group_permissions_to_dest_API(f_dest_bw_cli_session, f_access_token, 
 
         create_a_group_API(dest_bw_api_endpoint, f_access_token, each_group)
 
-    return True
 
 def import_permissions_to_dest_cli_v2(f_dest_bw_cli_session, f_access_token, f_coll_list_by_name):
     global dest_bw_api_endpoint
@@ -1880,6 +1879,8 @@ def get_members_details(f_bw_api_endpoint, f_access_token, f_member_id):
         json_data = response.json()
         if len(json_data) > 0:
             member_details = json_data
+            if (debug):
+                print("Member Details\n",member_details,"\n")
         else:
             print(f"JSON Response does not contain data. load_group_details_api. Response: {response}. Group ID:{f_member_id}")
     else:
@@ -1891,13 +1892,40 @@ def get_members_details(f_bw_api_endpoint, f_access_token, f_member_id):
 def load_users_details_from_api(f_bw_api_endpoint, f_access_token):
 
     member_list = get_members_list(f_bw_api_endpoint, f_access_token)
-
-    f_member_details_list = {}
+    if (debug):
+        print("Member List")
+        print(member_list, "\n")
+    f_member_details_list = []
     if len(member_list) > 0:
         for member in member_list:
-            f_member_details_list[member['email']]  = get_members_details(f_bw_api_endpoint, f_access_token, member["id"])
+            f_member_details_list.append(get_members_details(f_bw_api_endpoint, f_access_token, member["id"]))
 
     return f_member_details_list
+
+def import_users_perms_to_dest(f_bw_api_endpoint, f_access_token, f_member_details_list, f_coll_list):
+    dest_member_list = get_members_list(f_bw_api_endpoint, f_access_token)
+
+    #convert collections to dictionary with name as key
+    coll_dict_id = {}
+    if len(f_coll_list) > 0:
+        for each_col in f_coll_list:
+            coll_dict_id[each_col["name"]] = each_col["id"]
+    
+    member_dict_id = {}
+    if len(dest_member_list) > 0:
+        for each_dest_member in dest_member_list:
+            member_dict_id[each_dest_member["email"]] = each_dest_member["id"]
+
+    for each_member in f_member_details_list:
+        if (len(each_member["collections"]) > 0) and (each_member["email"] in member_dict_id):
+            dest_member_id = member_dict_id[each_member["email"]]
+            for each_col_in_member in each_member["collections"]:
+                each_col_in_member["id"] = coll_dict_id[each_col_in_member["name"]]
+            member_details = get_members_details(f_bw_api_endpoint, f_access_token, dest_member_id)
+            member_details["collections"] = each_member["collections"]
+            if debug:
+                print("Updating Member:\n", member_details, "\n")
+            update_user_collection( f_bw_api_endpoint, f_access_token, dest_member_id, member_details )
 
 def import_users_to_dest(f_bw_api_endpoint, f_access_token, f_member_details_list):
     dest_member_list = get_members_list(f_bw_api_endpoint, f_access_token)
@@ -1925,6 +1953,47 @@ def import_users_to_dest(f_bw_api_endpoint, f_access_token, f_member_details_lis
                 "collections": origin_user_details["collections"]
             }
             update_user_collection( f_bw_api_endpoint, f_access_token, each_dest_member['id'], user_dict )
+
+def translate_collection_id_to_name(f_member_details_list, f_coll_list):
+    #change the collection list to dictionary of names with ID as key
+    collection_name = {}
+    for each_coll in f_coll_list:
+        collection_name[each_coll["id"]] = each_coll["name"]
+    for each_member in f_member_details_list:
+        for each_member in f_member_details_list:
+            if len(each_member["collections"]) > 0:
+                for each_coll in each_member["collections"]:
+                    #putting name to the id
+                    each_coll["name"] = collection_name[each_coll["id"]]
+    if (debug): print("Member list after translation:\n", f_member_details_list,"\n")
+    return f_member_details_list
+
+def migrate_users_perms_bw_to_bw_v2():
+    global access_token, bw_api_endpoint, dest_access_token, dest_bw_api_endpoint
+
+    initial_environment_check()
+    bw_acc_password = get_account_password("source")
+    dest_bw_acc_password = get_account_password("destination")
+
+    if access_token == "":
+        access_token = login_to_bw_public_api(bw_identity_endpoint, bw_org_client_id, bw_org_client_secret)
+
+    if dest_access_token == "":
+        dest_access_token = login_to_bw_public_api(dest_bw_identity_endpoint, dest_bw_org_client_id, dest_bw_org_client_secret)
+
+    print("Exporting account permissions from source server...")
+    member_details_list = load_users_details_from_api( bw_api_endpoint, access_token)
+    bw_cli_session = login_on_cli(bw_vault_uri, bw_acc_client_id, bw_acc_client_secret, bw_acc_password)
+
+    coll_list = load_collection_list_cli(bw_org_id, bw_cli_session)
+
+    member_details_list = translate_collection_id_to_name(member_details_list, coll_list)
+
+    print("Importing account permissions to destination server...")
+    dest_bw_cli_session = login_on_cli(dest_bw_vault_uri, dest_bw_acc_client_id, dest_bw_acc_client_secret, dest_bw_acc_password)
+    dest_coll_list = load_collection_list_cli(dest_bw_org_id, dest_bw_cli_session)
+    import_users_perms_to_dest(dest_bw_api_endpoint, dest_access_token, member_details_list, dest_coll_list)
+
 
 def migrate_users_perms_bw_to_bw():
     global access_token, bw_api_endpoint, dest_access_token, dest_bw_api_endpoint
@@ -2016,20 +2085,6 @@ def migrate_col_ext_id_bw_to_bw():
 
     update_collection_ext_id(dest_bw_cli_session, dest_bw_org_id, coll_list)
 
-
-def do_diff_users(f_access_token, f_dest_access_token):
-
-    member_details_list = load_users_details_from_api( bw_api_endpoint, f_access_token)
-    dest_member_details_list = load_users_details_from_api( dest_bw_api_endpoint, f_dest_access_token)
-
-    if len(member_details_list) < 1:
-        print(f"The member list from source is empty")
-    if len(dest_member_details_list) < 1:
-        print(f"The member list from destination is empty")
-
-    #will do later. Just realized that comparing users may not be required.
-
-    return 0
 
 def compare_dicts(dict1, dict2):
     any_diff = False
@@ -2434,7 +2489,7 @@ def main(argv):
     elif command == "migratebwusers": 
         migrate_users_perms_bw_to_bw()
     elif command == "migrateuserperms": 
-        migrate_users_perms_bw_to_bw()
+        migrate_users_perms_bw_to_bw_v2()
     elif command == "migrategroupmembers":
         migrate_group_members_bw_to_bw()
     elif command == "migratecolextid":
