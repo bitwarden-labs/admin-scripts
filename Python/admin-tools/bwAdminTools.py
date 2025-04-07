@@ -85,11 +85,13 @@ def delete_all_collections(f_bw_identity_endpoint, f_bw_api_endpoint, f_bw_org_c
         access_token = login_to_bw_public_api(f_bw_identity_endpoint,f_bw_org_client_id,f_bw_org_client_secret)
 
     http_headers = {'Authorization': 'Bearer '+access_token}
-    response = requests.get(bw_api_endpoint+"public/collections", headers=http_headers)
-    
-
+    response = requests.get(f_bw_api_endpoint+"public/collections", headers=http_headers)
+            
     if (response.status_code == 200):
         col_list = response.json()
+
+        print("Deleting collections... May take a while if you have a large number of collections")
+            
         if len(col_list["data"]) > 0:
             for collection in col_list["data"]:
                 response = requests.delete(f_bw_api_endpoint+"public/collections/"+collection["id"], headers=http_headers)
