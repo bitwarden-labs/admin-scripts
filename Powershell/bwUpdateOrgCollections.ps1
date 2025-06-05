@@ -12,14 +12,14 @@
 # jq is required in $PATH https://stedolan.github.io/jq/download/
 # bw is required in $PATH and logged in and unlocked https://bitwarden.com/help/cli/
 
-#log the script notices
-Start-Transcript "" #set your transcript location
+#########################################
+#					#
+#	Script setup section		#
+#					#
+#########################################
 
-#####################################
-#									#
-#	Script setup section			#
-#									#
-#####################################
+#log the script progress
+Start-Transcript "" #set your transcript location
 
 # Handle API URLs
 $organization_id = "" # Set your Org ID
@@ -70,11 +70,11 @@ $org_members = (Invoke-RestMethod -Method GET -Uri $api_url/public/members -Head
 $values = $org_members.psobject.Properties.Value | Select-Object name,id,status,email
 $orgCollections = (.\bw --session $session_key list org-collections --organizationid $organization_id)
 
-#####################################
-#									#
-#	Configure new users				#
-#									#
-#####################################
+#########################################
+#					#
+#	Configure new users		#
+#					#
+#########################################
 # For each Member, create a Collection, and then assign that Member to it
 
 $groupId = "" #set the Administrators group guid
@@ -123,12 +123,12 @@ ForEach ($membervalues in $values) {
 
 }
 
-#####################################
-#									#
-#	Configure nested collection		#
-#		permissions					#
-#									#
-#####################################
+#########################################
+#					#
+#	Configure nested collection	#
+#		permissions		#
+#					#
+#########################################
 
 Write-Output "`n Checking nested collection permissions and adding the Administrators group"
 $t = "^Users/.*/.*"
@@ -144,11 +144,11 @@ ForEach ($nestedCollection in $nestedCollections) {
 	}
 }
 
-#####################################
-#									#
-#	Move unnested collections		#
-#									#
-#####################################
+#########################################
+#					#
+#	Move unnested collections	#
+#					#
+#########################################
 
 Write-Output "`n Checking for un-nested collections"
 $t = "^(Users|Archived Accounts|Default collection|Unassigned)"
@@ -171,6 +171,12 @@ ForEach ($collection in $unnestedCollections) {
 		$updateCollection = (.\bw --session $session_key get org-collection "$colId" --organizationid $organization_id) | .\jq --arg n $newName  '.name=$n ' | .\bw encode | .\bw --session $session_key edit org-collection $itemId  --organizationid $organization_id
 	}
 }
+
+#########################################
+#					#
+#	Cleanup secrets			#
+#					#
+#########################################
 
 #clear plaintext secrets
 $env:BW_CLIENTID = ''
