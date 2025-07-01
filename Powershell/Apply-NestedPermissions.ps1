@@ -69,12 +69,12 @@ function ConvertFrom-SecureStringPlain {
 
 # CLI authentication and session setup
 function Authenticate-Bitwarden {
-    Write-Log "🔑 Authenticating with Bitwarden CLI..."
+    Write-Log "Authenticating with Bitwarden CLI..."
     $password = ConvertFrom-SecureStringPlain -SecureString $MASTER_PASSWORD
     $loginResult = & bw login $EMAIL $password --raw
 
     if (!$loginResult) {
-        Write-Log "❌ Failed to authenticate with Bitwarden CLI." "ERROR"
+        Write-Log "Failed to authenticate with Bitwarden CLI." "ERROR"
         exit 1
     }
 
@@ -82,11 +82,11 @@ function Authenticate-Bitwarden {
     $sessionKey = & bw unlock $password --raw
 
     if (!$sessionKey) {
-        Write-Log "❌ Failed to unlock Bitwarden vault." "ERROR"
+        Write-Log "Failed to unlock Bitwarden vault." "ERROR"
         exit 1
     }
 
-    Write-Log "✅ Successfully unlocked Bitwarden vault."
+    Write-Log "Successfully unlocked Bitwarden vault."
     $env:BW_SESSION = $sessionKey
 }
 
@@ -98,8 +98,8 @@ function Display-Tree {
     )
 
     foreach ($node in $Nodes) {
-        Write-Host "$Indent🌳 $($node.Name)"
-        Write-Host "$Indent   🔧 Permissions: $($node.Permissions -join ', ')"
+        Write-Host "$Indent$($node.Name)"
+        Write-Host "$Indent   Permissions: $($node.Permissions -join ', ')"
         if ($node.Children.Count -gt 0) {
             Display-Tree -Nodes $node.Children -Indent "$Indent   "
         }
@@ -116,10 +116,10 @@ function Apply-RecursivePermissions {
     )
 
     # Fetch parent permissions
-    Write-Log "📋 Fetching permissions for parent collection: $ParentName ($ParentID)"
+    Write-Log "Fetching permissions for parent collection: $ParentName ($ParentID)"
     $parentPermissions = & bw get org-collection $ParentID --organizationid $ORGANIZATION_ID --session $env:BW_SESSION | ConvertFrom-Json
     if (-not $parentPermissions) {
-        Write-Log "❌ Failed to fetch parent collection permissions for $ParentName ($ParentID)" "ERROR"
+        Write-Log "Failed to fetch parent collection permissions for $ParentName ($ParentID)" "ERROR"
         return
     }
 
@@ -138,7 +138,7 @@ function Apply-RecursivePermissions {
     $childCollections = $AllCollections | Where-Object { $_.name -match "^$($ParentName)/" -and ($_.name -split '/').Count -eq ($ParentName -split '/').Count + 1 }
 
     foreach ($child in $childCollections) {
-        Write-Log "🔄 [Depth $Depth] Applying permissions to child collection: $($child.name)"
+        Write-Log "[Depth $Depth] Applying permissions to child collection: $($child.name)"
 
         # Update child collection permissions using CLI
         $childPermissionsJson = & bw get org-collection $child.id --organizationid $ORGANIZATION_ID --session $env:BW_SESSION | ConvertFrom-Json
@@ -150,11 +150,11 @@ function Apply-RecursivePermissions {
             $encodedJson = $updatedCollectionJson | bw encode
             & bw edit org-collection $child.id --organizationid $ORGANIZATION_ID --session $env:BW_SESSION --raw $encodedJson
         } catch {
-            Write-Log "❌ Failed to apply permissions to child collection: $($child.name) - $_" "ERROR"
+            Write-Log "Failed to apply permissions to child collection: $($child.name) - $_" "ERROR"
             continue
         }
 
-        Write-Log "   ✅ Permissions applied to child collection: $($child.name)"
+        Write-Log "   Permissions applied to child collection: $($child.name)"
 
         # Recurse into this child collection
         $childNode = Apply-RecursivePermissions -ParentName $child.name -ParentID $child.id -AllCollections $AllCollections -Depth ($Depth + 1)
@@ -166,28 +166,28 @@ function Apply-RecursivePermissions {
 
 # Main function
 function Main {
-    Write-Log "🚀 Starting Bitwarden multilevel permission script."
+    Write-Log "Starting Bitwarden multilevel permission script."
 
     Authenticate-Bitwarden
 
     # Retrieve collections
-    Write-Log "📚 Fetching all collections for organization ID: $ORGANIZATION_ID"
+    Write-Log "Fetching all collections for organization ID: $ORGANIZATION_ID"
     $collections = & bw list org-collections --organizationid $ORGANIZATION_ID --session $env:BW_SESSION | ConvertFrom-Json
 
     # Find root collection
     $rootCollection = $collections | Where-Object { $_.name -eq $ROOT_COLLECTION }
     if (-not $rootCollection) {
-        Write-Log "❌ Root collection '$ROOT_COLLECTION' not found. Exiting." "ERROR"
+        Write-Log "Root collection '$ROOT_COLLECTION' not found. Exiting." "ERROR"
         exit 1
     }
 
     $tree = Apply-RecursivePermissions -ParentName $rootCollection.name -ParentID $rootCollection.id -AllCollections $collections
 
     # Display the tree
-    Write-Log "🌳 Displaying collection hierarchy with permissions:"
+    Write-Log "Displaying collection hierarchy with permissions:"
     Display-Tree -Nodes @($tree)
 
-    Write-Log "🎉 Successfully completed multilevel permission inheritance."
+    Write-Log "Successfully completed multilevel permission inheritance."
 }
 
 # Execute the main function
