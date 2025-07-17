@@ -64,6 +64,9 @@ This script will create a collection for each group and assign the collection to
 - createCollectionsForAllMembers.sh<br>
 This script will create a collection for each member and assign the collection to the member
 
+- createCollectionsForAllMembersNested.sh<br>
+This script will create a nested collection for each member and assign the collection to the member
+
 - createItemAndShareWithCollection.sh<br>
 This script will create a login item and move it into the organization vault and assign it into a collection
 
