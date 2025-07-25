@@ -4,7 +4,7 @@ BW_PATH=""
 JQ_PATH=""
 SECURE_STR=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-CONFIG_FILE="user_config.yml"
+CONFIG_FILE="$SCRIPT_DIR/user_config.yml"
 SECRET_FILE="$SCRIPT_DIR/.secret"
 
 # Mode for the setup. 
@@ -181,7 +181,7 @@ JQ_PATH=$(get_program_path "jq") || exit 1
 check_openssl
 
 
-if [ ! -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
+if [ ! -f "$CONFIG_FILE" ]; then
   # Config File is not found. Write user-provided configs to the YAML file
   echo "Config file is not found. Running script setup"
   write_configs "$CONFIG_FILE"
