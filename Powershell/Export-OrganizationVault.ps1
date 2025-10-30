@@ -5,18 +5,17 @@
 .DESCRIPTION
     This script authenticates to Bitwarden using API key credentials (Client ID and Client Secret),
     unlocks the vault with a master password, and exports the organization vault to a specified file
-    in the requested format (JSON, CSV, or encrypted JSON). The script follows the same credential
-    pattern as the bash version (exportOrgVaultCronjob.sh) and uses plain text credentials instead
-    of SecureString.
+    in the requested format (JSON, CSV, or encrypted JSON). The master password is passed as a
+    SecureString for secure handling in memory.
 
 .PARAMETER CLIENT_ID
     The Personal API Client ID for Bitwarden authentication (starts with "user.").
 
 .PARAMETER CLIENT_SECRET
-    The Personal API Client Secret for Bitwarden authentication (plain text).
+    The Personal API Client Secret for Bitwarden authentication (SecureString).
 
 .PARAMETER MASTER_PASSWORD
-    The master password for unlocking the Bitwarden vault (plain text).
+    The master password for unlocking the Bitwarden vault (SecureString).
 
 .PARAMETER ORGANIZATION_ID
     The Organization ID whose vault will be exported.
@@ -36,8 +35,8 @@
 .EXAMPLE
     .\Export-OrganizationVault.ps1 `
         -CLIENT_ID "user.0263352c-8d55-4cad-ae38-aff7017deee4" `
-        -CLIENT_SECRET "your-client-secret" `
-        -MASTER_PASSWORD "your-master-password" `
+        -CLIENT_SECRET (ConvertTo-SecureString "your-client-secret" -AsPlainText -Force) `
+        -MASTER_PASSWORD (ConvertTo-SecureString "your-master-password" -AsPlainText -Force) `
         -ORGANIZATION_ID "1f0c58c3-a3d8-48b2-bb3a-ac8c0075bcc6" `
         -OUTPUT_FILE "C:\Exports\bw_export.json" `
         -EXPORT_FORMAT "json"
@@ -45,8 +44,8 @@
 .EXAMPLE
     .\Export-OrganizationVault.ps1 `
         -CLIENT_ID "user.0263352c-8d55-4cad-ae38-aff7017deee4" `
-        -CLIENT_SECRET "your-client-secret" `
-        -MASTER_PASSWORD "your-master-password" `
+        -CLIENT_SECRET (ConvertTo-SecureString "your-client-secret" -AsPlainText -Force) `
+        -MASTER_PASSWORD (ConvertTo-SecureString "your-master-password" -AsPlainText -Force) `
         -ORGANIZATION_ID "1f0c58c3-a3d8-48b2-bb3a-ac8c0075bcc6" `
         -OUTPUT_FILE "C:\Exports\bw_export.csv" `
         -EXPORT_FORMAT "csv" `
@@ -65,11 +64,11 @@ param (
 
     [Parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    [string]$CLIENT_SECRET,
+    [SecureString]$CLIENT_SECRET,
 
     [Parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    [string]$MASTER_PASSWORD,
+    [SecureString]$MASTER_PASSWORD,
 
     [Parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -125,10 +124,14 @@ Write-Log "Bitwarden CLI found: $((Get-Command $BW_EXEC).Source)"
 Write-Log "Configuring Bitwarden CLI with server URI: $SERVER_URI"
 & $BW_EXEC config server $SERVER_URI | Out-Null
 
+# Convert CLIENT_SECRET SecureString to plain text for environment variable
+# Using NetworkCredential for cross-platform compatibility
+$plainTextClientSecret = [System.Net.NetworkCredential]::new("", $CLIENT_SECRET).Password
+
 # Set environment variables for API key authentication
 Write-Log "Setting API key credentials as environment variables"
 $env:BW_CLIENTID = $CLIENT_ID
-$env:BW_CLIENTSECRET = $CLIENT_SECRET
+$env:BW_CLIENTSECRET = $plainTextClientSecret
 
 # Check authentication status
 Write-Log "Checking authentication status..."
@@ -148,9 +151,13 @@ if ($statusOutput.status -eq "unauthenticated") {
     Write-Log "Already authenticated. Status: $($statusOutput.status)"
 }
 
+# Convert SecureString to plain text for bw CLI
+# Using NetworkCredential for cross-platform compatibility
+$plainTextPassword = [System.Net.NetworkCredential]::new("", $MASTER_PASSWORD).Password
+
 # Unlock the vault to get session key
 Write-Log "Unlocking vault with master password..."
-$sessionKey = & $BW_EXEC unlock $MASTER_PASSWORD --raw
+$sessionKey = & $BW_EXEC unlock $plainTextPassword --raw
 
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sessionKey)) {
     Write-Log "Failed to unlock vault. Please check your master password." "ERROR"
