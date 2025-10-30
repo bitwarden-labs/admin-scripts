@@ -1,3 +1,12 @@
+<#
+
+WARNING!!! This script is deprecated. 
+
+Please use Powershell Export-OrganizationVault.ps1 instead.
+
+#>
+
+
 
 $bw_clientid="" #fill this with your API client id
 $bw_clientsecret="" #fill this with your API secret
