@@ -25,3 +25,7 @@ test-*
 # MacOS X
 
 .DS_Store
+
+*.csv
+
+*.log
