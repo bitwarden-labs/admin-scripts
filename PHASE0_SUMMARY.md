@@ -12,7 +12,8 @@
 |--------|-------|
 | **Duration** | 1 week (as planned) |
 | **Documentation** | 8 documents (~40,000 words) |
-| **Scripts Analyzed** | 80+ |
+| **Scripts Analyzed** | 110+ (80+ main scripts + 12 repos) |
+| **Repos to Consolidate** | 12 bitwarden-labs repositories |
 | **Test Examples** | 24 tests across 3 files |
 | **CI Workflows** | 2 (test + docs) |
 | **Setup Time** | ~7 minutes (target: <15 min) |
@@ -22,10 +23,11 @@
 ## What Was Accomplished
 
 ### 📋 Complete Audit
-- Inventoried 80+ scripts (Bash, PowerShell, Python)
-- Identified 8 functional categories
-- Found ~30% code duplication
-- Documented 6 major consolidation opportunities
+- Inventoried 110+ scripts and tools (main scripts + 12 repos)
+- Analyzed 12 bitwarden-labs repositories for mono-repo consolidation
+- Identified 15 functional categories (8 original + 7 from repos)
+- Found ~30% code duplication across scripts and repos
+- Documented 6+ major consolidation opportunities
 
 ### 🏗️ Architecture Designed
 - 5-layer architecture (CLI, Core, API, Config, Utils)
@@ -61,10 +63,14 @@
 
 ### Priority Consolidation Targets
 
-1. **User Confirmation** - 11 implementations → 1 unified (CRITICAL)
+1. **User Confirmation** - 12 implementations → 1 unified (CRITICAL)
+   - 11 from main scripts + bwconfirm repo
 2. **Collection Creation** - 8 implementations → 1 modular (HIGH)
 3. **Vault Export** - 4 implementations → 1 unified (HIGH)
-4. **Event Logs** - 4 implementations → 1 unified (MEDIUM)
+4. **Event Logs** - 6+ implementations → 1 unified (MEDIUM)
+   - Includes event-cleanup repo and events-public-api-client repo
+5. **Deployment Automation** - Multiple repos → unified Ansible (HIGH)
+   - client-deployment, deployment-scripts, nginx-from-source-ansible
 
 ### Technical Debt
 
@@ -88,21 +94,26 @@
 
 ## What's Next?
 
-### Phase 1: Script Overlap Analysis (Weeks 2-3)
+### Phase 1: Script Overlap Analysis (Weeks 2-4)
 
 **Objectives:**
-1. Deep analysis of duplicate functionality
-2. Create consolidation matrix
+1. Deep analysis of duplicate functionality (scripts + repos)
+2. Create consolidation matrix for scripts and repos
 3. Design unified interfaces
-4. Establish deprecation list
+4. Establish deprecation list for scripts and repos
+5. Plan mono-repo consolidation strategy
 
 **First Tasks:**
-- Map all 11 user confirmation implementations
+- Map all 12 user confirmation implementations (11 scripts + bwconfirm)
+- Analyze 12 repos overlap with main scripts
 - Compare feature sets across duplicates
 - Identify "best of breed" for each function
+- Extract unique capabilities from repos (Ansible, GitHub Actions, SIEM)
+- Design mono-repo structure for bitwarden-labs organization
 - Create old script → new command mapping
+- Create repos deprecation strategy
 
-**Estimated Duration:** 1-2 weeks
+**Estimated Duration:** 2-3 weeks (extended due to repos analysis)
 
 ---
 

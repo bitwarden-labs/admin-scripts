@@ -1,15 +1,18 @@
 # Bitwarden Admin-Scripts - Target Architecture
 
 **Phase:** 0 (Design)
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Draft for Review
 **Date:** 2025-11-04
+**Updated:** 2025-11-05 (repos integration)
 
 ---
 
 ## 🎯 Executive Summary
 
-This document defines the target architecture for the refactored admin-scripts repository. The goal is to transform a collection of 80+ standalone scripts into a unified, modular, testable Python-based administrative toolset while maintaining backward compatibility with existing Bash and PowerShell scripts.
+This document defines the target architecture for the refactored admin-scripts repository. The goal is to transform a collection of 110+ standalone scripts and tools (including 12 bitwarden-labs repositories) into a unified, modular, testable Python-based administrative toolset with Infrastructure-as-Code capabilities, while maintaining backward compatibility with existing Bash and PowerShell scripts.
+
+**Note:** This architecture now encompasses consolidation of 12 separate bitwarden-labs repositories into a mono-repo structure, including Ansible automation, GitHub Actions workflows, container deployments, and SIEM integrations.
 
 ### Key Architectural Principles
 
@@ -54,6 +57,51 @@ This document defines the target architecture for the refactored admin-scripts r
 │  Bitwarden CLI   │  Bitwarden API      │  External APIs    │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 📦 Repos Integration Strategy
+
+**Context:** During Phase 0, we discovered 12 bitwarden-labs repositories that need to be consolidated into this mono-repo architecture.
+
+### Repos to Integrate
+
+1. **backup-automations** - Automated backup workflows
+2. **brilliance-bwdc** - Bitwarden Directory Connector utilities
+3. **bwconfirm** - User confirmation utilities (12th implementation)
+4. **bwdc-container** - Containerized BWDC deployments
+5. **bws-ansible-examples** - Bitwarden Secrets Manager Ansible playbooks
+6. **client-deployment** - Client installation and deployment scripts
+7. **deployment-scripts** - Multi-platform deployment automation (5 Linux distros)
+8. **event-cleanup** - Event log management and cleanup
+9. **events-public-api-client** - Event API integration for SIEM
+10. **nginx-from-source-ansible** - Infrastructure automation
+11. **reverse-proxy_configurations** - Proxy configuration templates
+12. **vault-stats-workflow** - GitHub Actions for vault statistics
+
+### Integration Approach
+
+**Phase 1-2:** Extract and consolidate unique capabilities from repos:
+- **Ansible Automation** → `bw_admin/automation/` module (30+ playbooks/roles)
+- **GitHub Actions** → `.github/workflows/` integration (3 workflows)
+- **Container Deployments** → `bw_admin/containers/` module
+- **SIEM Integrations** → `bw_admin/integrations/` module (UDM, Syslog formats)
+- **Client Lifecycle** → `bw_admin/deployment/` module (multi-distro support)
+
+**Phase 5:** Create legacy wrappers that redirect to consolidated implementations, allowing gradual deprecation of standalone repos.
+
+**Phase 7:** Archive deprecated repos with clear migration documentation.
+
+### Key Repos Capabilities
+
+| Capability | Source Repos | Target Module |
+|------------|--------------|---------------|
+| User Confirmation | bwconfirm + 11 scripts | `bw_admin/core/user_confirmation.py` |
+| Event Processing | event-cleanup, events-public-api-client | `bw_admin/integrations/events.py` |
+| Deployment | client-deployment, deployment-scripts | `bw_admin/deployment/` |
+| Ansible Automation | bws-ansible-examples, nginx-from-source-ansible | `bw_admin/automation/` |
+| Containers | bwdc-container | `bw_admin/containers/` |
+| Workflows | vault-stats-workflow, backup-automations | `.github/workflows/` |
 
 ---
 
