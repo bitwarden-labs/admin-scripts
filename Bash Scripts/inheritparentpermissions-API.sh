@@ -3,16 +3,20 @@
 # replacewithyoursupersecretstring
 # With your own encryption phrase, and then running:
 # echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
-# echo 'ORG API KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureSecretString.txt.txt
-# jq is required in $PATH https://stedolan.github.io/jq/download/
+# echo 'ORG API KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureSecretString.txt
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
 # openssl is required in $PATH https://www.openssl.org/
+# Usage: ./inheritparentpermissions-API.sh ["Parent Collection Name"]
+# If parent name is provided, only processes that specific parent collection
 
 organization_id="REPLACE_WITH_YOUR_ORG_ID" # Set your Org ID
 org_client_id="organization.$organization_id" # Auto-generated from organization_id
 BW_IDENTITY_HOST="https://identity.bitwarden.com"
 BW_API_HOST="https://api.bitwarden.com"
 debug=0
+
+# Optional parameter: specific parent collection name
+specific_parent="$1"
 
 # org_client_secret will be read from secureSecretString.txt
 
@@ -90,7 +94,11 @@ parentcollections=$(bw list org-collections --organizationid $organization_id | 
 IFS=$'\n'
 for parent in $parentcollections; do
 
-    
+    # Skip this parent if a specific parent was provided and this isn't it
+    if [ -n "$specific_parent" ] && [ "$parent" != "$specific_parent" ]; then
+        continue
+    fi
+
     # Get the Parent's Collection ID
     parentid=$(bw list org-collections --organizationid $organization_id | jq --arg p "$parent" -r '.[] | select(.name == $p) | .id')
 	if [ -n "$parentid" ]; then
