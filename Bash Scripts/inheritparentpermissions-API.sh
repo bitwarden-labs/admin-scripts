@@ -5,6 +5,7 @@
 # echo 'YOUR_MASTER_PASSWORD' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureString.txt
 # echo 'ORG API KEY' | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 600001 -salt -pass pass:replacewithyoursupersecretstring > secureSecretString.txt
 # bw is required in $PATH and logged in https://bitwarden.com/help/cli/
+# jq is required in $PATH https://stedolan.github.io/jq/download/
 # openssl is required in $PATH https://www.openssl.org/
 # Usage: ./inheritparentpermissions-API.sh ["Parent Collection Name"]
 # If parent name is provided, only processes that specific parent collection
