@@ -3,14 +3,18 @@
 Delinea (Thycotic) Secret Server to Bitwarden Migration Script
 
 This script converts a Delinea Secret Server XML export to Bitwarden JSON and imports it
-directly using the Bitwarden CLI.
+directly into the individual vault using the Bitwarden CLI. Use --export-org to export for an organization vault.
+You must define an --org-id for organization exports.
 
 Usage:
     # Direct import (recommended)
     python3 delinea_to_bitwarden.py secrets-export.xml
 
-    # Export to JSON only (no import)
-    python3 delinea_to_bitwarden.py secrets-export.xml --export-only -o output.json
+    # Export to JSON (individual vault)
+    python3 delinea_to_bitwarden.py secrets-export.xml --export -o output.json
+
+    # Export to JSON (org vault)
+    python3 delinea_to_bitwarden.py secrets-export.xml --export-org --org-id <org-id> -o output.json
 """
 
 import argparse
@@ -305,10 +309,11 @@ class DelineaToBitwardenConverter:
 
     PERSONAL_FOLDER_PREFIX = '\\Personal Folders'
 
-    def __init__(self, xml_path: str):
+    def __init__(self, xml_path: str, org_id: Optional[str] = None):
         self.xml_path = xml_path
+        self.org_id = org_id  # Organization ID for org exports
         self.handler = DelineaXMLHandler()
-        self.folder_map = {}  # Maps folder path to folder ID
+        self.folder_map = {}  # Maps folder path to folder/collection ID
 
     def parse_xml(self):
         """Parse the XML export file"""
@@ -477,7 +482,7 @@ class DelineaToBitwardenConverter:
         # Base item structure
         item = {
             "id": str(uuid.uuid4()),
-            "organizationId": None,
+            "organizationId": self.org_id,  # None for personal vault, UUID for org
             "folderId": None,
             "type": item_type,
             "name": secret.get('name', 'Untitled'),
@@ -489,10 +494,18 @@ class DelineaToBitwardenConverter:
             "deletedDate": None
         }
 
-        # Handle folder assignment
+        # Handle folder/collection assignment
         folder_path = secret.get('folder', '')
-        if folder_path and folder_path in self.folder_map:
-            item['folderId'] = self.folder_map[folder_path]
+        if self.org_id:
+            # Organization mode: use collectionIds (array)
+            if folder_path and folder_path in self.folder_map:
+                item['collectionIds'] = [self.folder_map[folder_path]]
+            else:
+                item['collectionIds'] = []
+        else:
+            # Personal vault mode: use folderId (single value)
+            if folder_path and folder_path in self.folder_map:
+                item['folderId'] = self.folder_map[folder_path]
 
         # Type-specific handling
         if item_type == 1:  # Login
@@ -738,28 +751,43 @@ class DelineaToBitwardenConverter:
 
         return fields
 
-    def build_folders(self) -> List[Dict]:
-        """Build Bitwarden folders structure"""
-        folders = []
+    def build_folders_or_collections(self) -> List[Dict]:
+        """Build Bitwarden folders or collections structure"""
+        result = []
 
         for folder in self.handler.folders:
             folder_path = folder['path']
             if not folder_path:
                 continue
 
-            folder_id = str(uuid.uuid4())
-            self.folder_map[folder_path] = folder_id
+            item_id = str(uuid.uuid4())
+            self.folder_map[folder_path] = item_id
 
-            folders.append({
-                "id": folder_id,
-                "name": folder_path
-            })
+            if self.org_id:
+                # Organization mode: create collection
+                result.append({
+                    "id": item_id,
+                    "organizationId": self.org_id,
+                    "name": folder_path,
+                    "externalId": None
+                })
+            else:
+                # Personal vault mode: create folder
+                result.append({
+                    "id": item_id,
+                    "name": folder_path
+                })
 
-        return folders
+        return result
 
     def convert(self) -> Dict:
         """Main conversion method"""
         print("\nStarting conversion...")
+
+        if self.org_id:
+            print(f"Organization mode: exporting for org {self.org_id}")
+        else:
+            print("Personal vault mode")
 
         # Parse XML
         self.parse_xml()
@@ -768,9 +796,12 @@ class DelineaToBitwardenConverter:
         print("Normalizing folder paths...")
         self.normalize_folders()
 
-        # Build folders
-        print("Building folder structure...")
-        folders = self.build_folders()
+        # Build folders or collections
+        if self.org_id:
+            print("Building collection structure...")
+        else:
+            print("Building folder structure...")
+        folders_or_collections = self.build_folders_or_collections()
 
         # Convert secrets to items
         print("Converting secrets to Bitwarden items...")
@@ -783,13 +814,23 @@ class DelineaToBitwardenConverter:
                 print(f"  Warning: Failed to convert secret '{secret.get('name', 'Unknown')}': {e}")
 
         print(f"\nConversion complete!")
-        print(f"  Total folders: {len(folders)}")
+        if self.org_id:
+            print(f"  Total collections: {len(folders_or_collections)}")
+        else:
+            print(f"  Total folders: {len(folders_or_collections)}")
         print(f"  Total items: {len(items)}")
 
-        return {
-            "folders": folders,
-            "items": items
-        }
+        # Return appropriate structure based on mode
+        if self.org_id:
+            return {
+                "collections": folders_or_collections,
+                "items": items
+            }
+        else:
+            return {
+                "folders": folders_or_collections,
+                "items": items
+            }
 
     def import_to_bitwarden(self, session_key: str) -> bool:
         """
@@ -883,11 +924,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Direct import to Bitwarden (recommended)
+  # Direct import to personal vault (uses Bitwarden CLI)
   python3 delinea_to_bitwarden.py secrets-export.xml
 
-  # Export to JSON file only (no import)
-  python3 delinea_to_bitwarden.py secrets-export.xml --export-only -o bitwarden-import.json
+  # Export to JSON file for personal vault
+  python3 delinea_to_bitwarden.py secrets-export.xml --export -o personal.json
+
+  # Export to JSON file for organization
+  python3 delinea_to_bitwarden.py secrets-export.xml --export-org --org-id <ORG-UUID> -o org.json
+
+Getting Your Organization ID:
+  1. Log into Bitwarden web vault
+  2. Navigate to your organization
+  3. Copy the UUID from the URL (e.g., https://vault.bitwarden.com/#/organizations/<ORG-UUID>/vault)
 
 Export Instructions:
   1. In Delinea Secret Server, go to Admin > See All > Import/Export
@@ -903,29 +952,50 @@ Export Instructions:
         help='Path to Delinea Secret Server XML export file'
     )
     parser.add_argument(
-        '--export-only',
+        '--export',
         action='store_true',
-        help='Export to JSON file only without importing to Bitwarden'
+        help='Export to JSON file for personal vault (uses folders)'
+    )
+    parser.add_argument(
+        '--export-org',
+        action='store_true',
+        help='Export to JSON file for organization vault (uses collections). Requires --org-id'
+    )
+    parser.add_argument(
+        '--org-id',
+        help='Organization ID (UUID) for organization exports. Required when using --export-org'
     )
     parser.add_argument(
         '-o', '--output',
         default='bitwarden-import.json',
-        help='Output JSON file path (default: bitwarden-import.json). Only used with --export-only'
+        help='Output JSON file path (default: bitwarden-import.json). Only used with --export or --export-org'
     )
     parser.add_argument(
         '--compact',
         action='store_true',
-        help='Output compact JSON (single line) instead of pretty-printed. Only used with --export-only'
+        help='Output compact JSON (single line) instead of pretty-printed. Only used with --export or --export-org'
     )
 
     args = parser.parse_args()
 
-    # Create converter
-    converter = DelineaToBitwardenConverter(args.xml_file)
+    # Validate export mode arguments
+    if args.export and args.export_org:
+        parser.error('--export and --export-org are mutually exclusive')
+    if args.export_org and not args.org_id:
+        parser.error('--export-org requires --org-id to be specified')
+    if args.org_id and not args.export_org:
+        parser.error('--org-id can only be used with --export-org')
 
-    if args.export_only:
-        # Export-only mode: just write JSON file
-        print("\n=== Export Mode ===")
+    # Create converter
+    converter = DelineaToBitwardenConverter(args.xml_file, org_id=args.org_id if args.export_org else None)
+
+    if args.export or args.export_org:
+        # Export mode: just write JSON file
+        if args.export_org:
+            print("\n=== Organization Export Mode ===")
+        else:
+            print("\n=== Personal Vault Export Mode ===")
+
         bitwarden_data = converter.convert()
 
         # Write output (pretty-print by default)
@@ -937,11 +1007,18 @@ Export Instructions:
                 json.dump(bitwarden_data, f, indent=2, ensure_ascii=False)
 
         print(f"\nSuccess! Import into Bitwarden using:")
-        print(f"  bw import bitwardenjson {args.output}")
+        if args.export_org:
+            print(f"  1. Log into Bitwarden web vault")
+            print(f"  2. Navigate to your organization")
+            print(f"  3. Go to Tools > Import Data")
+            print(f"  4. Select 'Bitwarden (json)' format")
+            print(f"  5. Upload {args.output}")
+        else:
+            print(f"  bw import bitwardenjson {args.output}")
 
     else:
-        # Import mode: authenticate and import directly
-        print("\n=== Import Mode ===")
+        # Import mode: authenticate and import directly to personal vault
+        print("\n=== Direct Import Mode (Personal Vault) ===")
         print("Authenticating with Bitwarden...")
 
         auth = BitwardenAuth()
