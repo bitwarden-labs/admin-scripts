@@ -1,10 +1,10 @@
 # Bitwarden Admin-Scripts - Complete Refactoring Plan
 
-**Repository:** bitwarden-labs/admin-scripts (+ 12 repos consolidation)
-**Version:** 1.1
-**Date:** 2025-11-05 (Updated with repos analysis)
+**Repository:** bitwarden-labs/admin-scripts
+**Version:** 1.2
+**Date:** 2026-02-25
 **Status:** In Progress (Phase 0)
-**Est. Duration:** 14-18 weeks (+2 weeks for repos integration)
+**Est. Duration:** 12-16 weeks
 
 ---
 
@@ -31,28 +31,18 @@
 
 ### Current State
 
-The admin-scripts repository contains 110+ tools/scripts across main repo + 12 bitwarden-labs repos:
+The admin-scripts repository contains 80+ scripts and tools:
 
-**Main Repository (80+ scripts):**
 - 33 Bash scripts
 - 27 PowerShell scripts
-- 20+ Python scripts
-
-**Repos Folder (12 repositories, 30+ additional scripts/tools):**
-- 9+ additional Bash scripts
-- 2 additional PowerShell scripts
-- 20+ Python modules (including full applications)
-- 30+ Ansible playbooks/roles
-- 3 GitHub Actions workflows
-- 3 Docker configurations
+- 20+ Python scripts (including sub-projects: admin-tools, permissions-report, LP_attach_importer, add_item_to_collection)
 
 **Current Issues:**
 - Scripts organized by language, not functionality
-- High duplication (~35% with repos included)
+- High duplication (~30%)
 - Inconsistent credential management
 - No automated testing
 - No unified interface
-- 12 separate repos requiring consolidation into mono-repo
 
 ### Target State
 
@@ -67,36 +57,28 @@ A modular, unified administrative toolset:
 
 ### Refactoring Goals
 
-1. **Reduce Duplication** - Consolidate 110+ scripts/tools into unified modules
-2. **Consolidate Repos** - Merge 12 bitwarden-labs repos into mono-repo
-3. **Improve Security** - Centralized encrypted credential storage
-4. **Enhance Testability** - Achieve 80%+ code coverage
-5. **Unify Interface** - Single CLI tool for all operations
-6. **Preserve Capabilities** - Integrate Ansible, GitHub Actions, SIEM features
-7. **Maintain Compatibility** - Support existing workflows during transition
-8. **Improve Maintainability** - Modular, well-documented codebase
+1. **Reduce Duplication** - Consolidate 80+ scripts into unified modules
+2. **Improve Security** - Centralized encrypted credential storage
+3. **Enhance Testability** - Achieve 80%+ code coverage
+4. **Unify Interface** - Single CLI tool for all operations
+5. **Maintain Compatibility** - Support existing workflows during transition
+6. **Improve Maintainability** - Modular, well-documented codebase
 
 ---
 
-## 📊 Phases Overview (UPDATED)
+## 📊 Phases Overview
 
 | Phase | Name | Duration | Key Deliverables | Status |
 |-------|------|----------|------------------|--------|
-| **0** | Audit & Foundation | 1 week | Inventory, architecture, test scaffold, repos analysis | ✅ Complete |
-| **1** | Script Analysis + Repos | 2-3 weeks | Deprecation list, repos consolidation plan | ⏳ Not Started |
-| **2** | Modularization | 3-4 weeks | Core modules, repos integration | ⏳ Not Started |
-| **3** | Unified CLI | 2-3 weeks | `bw-admin` CLI with repos capabilities | ⏳ Not Started |
+| **0** | Audit & Foundation | 1 week | Inventory, architecture, test scaffold | ✅ Complete |
+| **1** | Script Analysis | 2 weeks | Deprecation list, consolidation plan | ⏳ Not Started |
+| **2** | Modularization | 3-4 weeks | Core modules | ⏳ Not Started |
+| **3** | Unified CLI | 2-3 weeks | `bw-admin` CLI | ⏳ Not Started |
 | **4** | Config Management | 1-2 weeks | Encrypted config system | ⏳ Not Started |
 | **5** | Cross-Platform Parity | 2-3 weeks | Bash/PS wrappers, platform tests | ⏳ Not Started |
-| **6** | Testing & Release | 3-4 weeks | Full test suite, docs, mono-repo release | ⏳ Not Started |
+| **6** | Testing & Release | 3-4 weeks | Full test suite, docs, release | ⏳ Not Started |
 
-**Total Estimated Duration:** 14-18 weeks (+2 weeks for repos integration)
-
-**Key Changes from Original Plan:**
-- Phase 0: Added repos folder analysis ✅
-- Phase 1: Extended +1 week for repos overlap analysis
-- Phase 2: Extended +1 week for repos code integration
-- Overall: +2 weeks total for repos consolidation work
+**Total Estimated Duration:** 12-16 weeks
 
 ---
 
@@ -208,21 +190,19 @@ Phase 0 is complete when:
 ---
 
 <a name="phase-1"></a>
-## 📊 Phase 1: Script Overlap Analysis, Deprecation and Merging (UPDATED)
+## 📊 Phase 1: Script Overlap Analysis, Deprecation and Merging
 
-**Duration:** 2-3 weeks (+1 week for repos analysis)
+**Duration:** 2 weeks
 **Status:** ⏳ Not Started
-**Dependencies:** Phase 0 complete (including repos analysis)
+**Dependencies:** Phase 0 complete
 
 ### Objectives
 
-1. Analyze overlapping functionality across main scripts AND repos
-2. Create consolidation plan for mono-repo
-3. Identify scripts AND repos for deprecation/archiving
+1. Analyze overlapping functionality across scripts
+2. Create consolidation plan
+3. Identify scripts for deprecation
 4. Define unified interfaces for common operations
-5. Establish migration strategy for scripts AND repos
-6. **NEW:** Plan bitwarden-labs repos consolidation strategy
-7. **NEW:** Identify unique capabilities to preserve from repos
+5. Establish migration strategy for legacy scripts
 
 ### Tasks
 
@@ -272,73 +252,19 @@ Phase 0 is complete when:
   - **Deliverable:** phase2-priority-list.md
   - **Duration:** 1 day
 
-#### Week 3: Repos Analysis & Mono-Repo Planning (NEW)
+### Priority Consolidation Targets
 
-- [ ] **Task 1.7:** Analyze repos overlap with main scripts
-  - Map repos functionality to main scripts
-  - Identify critical overlaps (user confirmation, event processing, deployment)
-  - Compare feature completeness (repos often more sophisticated)
-  - **Duration:** 2 days
+| Function | Scripts | Target Module | Priority |
+|----------|---------|---------------|----------|
+| **User confirmation** | 11 | `core.users.confirm_accepted()` | **CRITICAL** |
+| **Create collections for groups** | 8 | `core.collections.create_for_groups()` | **HIGH** |
+| **List members** | 5 | `core.users.list_members()` | **HIGH** |
+| **Export org vault** | 4 | `core.vault.export()` | **HIGH** |
+| **Event processing** | 4 | `core.reports.event_logs()` | **MEDIUM** |
+| **Delete collections** | 2 | `core.collections.delete_all()` | **MEDIUM** |
+| **Purge groups** | 2 | `core.groups.purge()` | **LOW** |
 
-- [ ] **Task 1.8:** Create repos consolidation matrix
-  - For each of 12 repos: decision to integrate, archive, or redirect
-  - Plan code migration path (which code goes where)
-  - Identify dependencies to preserve (Ansible, Docker, GitHub Actions)
-  - **Deliverable:** repos-consolidation-matrix.md
-  - **Duration:** 2 days
-
-- [ ] **Task 1.9:** Extract unique capabilities from repos
-  - Document Ansible patterns from 3 automation repos
-  - Preserve GitHub Actions workflows (backup-automations, vault-stats, bwconfirm)
-  - Integrate SIEM formats from events-public-api-client
-  - Preserve client lifecycle management from client-deployment
-  - **Deliverable:** repos-capabilities-extraction-plan.md
-  - **Duration:** 2 days
-
-- [ ] **Task 1.10:** Design mono-repo structure
-  - Folder structure for integrated content
-  - Plan for legacy/ vs active code
-  - GitHub Actions workflows location
-  - Ansible playbooks organization
-  - Docker configurations placement
-  - **Deliverable:** mono-repo-structure.md
-  - **Duration:** 1 day
-
-- [ ] **Task 1.11:** Create repos deprecation strategy
-  - Communication plan for repo users
-  - Redirect strategy (README updates pointing to mono-repo)
-  - Archive timeline
-  - Migration support plan
-  - **Deliverable:** repos-deprecation-strategy.md
-  - **Duration:** 1 day
-
-### Priority Consolidation Targets (UPDATED WITH REPOS)
-
-Based on main scripts + repos analysis:
-
-| Function | Main Scripts | Repos | Total | Target Module | Priority |
-|----------|--------------|-------|-------|---------------|----------|
-| **User confirmation** | 11 scripts | +1 (bwconfirm) | **12** | `core.users.confirm_accepted()` | **CRITICAL** |
-| **Event processing** | 4 scripts | +2 (events-public-api-client, event-cleanup) | **6** | `core.reports.event_logs()` w/ SIEM | **CRITICAL** |
-| **Installation/Deployment** | 1-2 scripts | +5 (deployment-scripts) | **6-7** | `core.deploy.install()` | **HIGH** |
-| **Create collections for groups** | 8 scripts | - | **8** | `core.collections.create_for_groups()` | **HIGH** |
-| **Export org vault** | 4 scripts | - | **4** | `core.vault.export()` | **HIGH** |
-| **List members** | 5 scripts | - | **5** | `core.users.list_members()` | **HIGH** |
-| **Delete collections** | 2 scripts | - | **2** | `core.collections.delete_all()` | **MEDIUM** |
-| **Purge groups** | 2 scripts | - | **2** | `core.groups.purge()` | **LOW** |
-
-### New Capabilities from Repos (No Duplication)
-
-| Capability | Repo(s) | Target Module | Priority |
-|------------|---------|---------------|----------|
-| **Automated Backups** | backup-automations | `core.backup.*` + GH workflow | **HIGH** |
-| **Vault Statistics** | vault-stats-workflow | `core.reports.stats()` + GH workflow | **MEDIUM** |
-| **Client Management** | client-deployment | `core.clients.*` | **MEDIUM** |
-| **Ansible Automation** | 3 repos | `ansible/` playbooks | **MEDIUM** |
-| **SIEM Integration** | events-public-api-client | Merge into `core.reports.event_logs()` | **HIGH** |
-| **Container Deployments** | 2 repos | `docker/` examples | **LOW** |
-
-### Deliverables (UPDATED)
+### Deliverables
 
 | Deliverable | Status | Est. Completion |
 |-------------|--------|-----------------|
@@ -347,42 +273,31 @@ Based on main scripts + repos analysis:
 | Deprecation list | ⏳ | Week 2 |
 | Script migration map | ⏳ | Week 2 |
 | Phase 2 priority list | ⏳ | Week 2 |
-| **NEW:** Repos consolidation matrix | ⏳ | Week 3 |
-| **NEW:** Repos capabilities extraction plan | ⏳ | Week 3 |
-| **NEW:** Mono-repo structure design | ⏳ | Week 3 |
-| **NEW:** Repos deprecation strategy | ⏳ | Week 3 |
 
-### Success Criteria (UPDATED)
+### Success Criteria
 
-- [ ] All duplicate functionality mapped (including repos)
-- [ ] Consolidation plan defined for top 10 operations
+- [ ] All duplicate functionality mapped
+- [ ] Consolidation plan defined for top operations
 - [ ] Deprecation list created with timeline
 - [ ] Migration guide drafted for scripts
 - [ ] Phase 2 implementation priorities established
-- [ ] **NEW:** All 12 repos analyzed and categorized
-- [ ] **NEW:** Mono-repo structure designed
-- [ ] **NEW:** Repos consolidation plan approved
-- [ ] **NEW:** Unique capabilities identified and preservation plan created
 
-### Exit Criteria (UPDATED)
+### Exit Criteria
 
 Phase 1 is complete when:
-1. Consolidation matrix covers all duplicates (main + repos)
-2. Deprecation list approved for scripts AND repos
-3. **NEW:** Mono-repo structure designed and approved
-4. **NEW:** Repos consolidation matrix complete
-5. **NEW:** Migration strategy for repo users documented
+1. Consolidation matrix covers all duplicates
+2. Deprecation list approved
 3. Unified interfaces designed and documented
 4. Team agrees on Phase 2 priorities
 
 ---
 
 <a name="phase-2"></a>
-## 🧩 Phase 2: Modularization of Python Code (Core Logic + Repos Integration)
+## 🧩 Phase 2: Modularization of Python Code
 
-**Duration:** 3-4 weeks (+1 week for repos code integration)
+**Duration:** 3-4 weeks
 **Status:** ⏳ Not Started
-**Dependencies:** Phase 1 complete (including repos consolidation plan)
+**Dependencies:** Phase 1 complete
 
 ### Objectives
 
@@ -390,9 +305,7 @@ Phase 1 is complete when:
 2. Implement core business logic modules
 3. Build API client abstraction layer
 4. Extract reusable utilities
-5. **NEW:** Integrate repos code (events-public-api-client, deployment-scripts logic)
-6. **NEW:** Preserve Ansible playbooks and GitHub Actions workflows
-7. Achieve 85%+ test coverage on core modules
+5. Achieve 85%+ test coverage on core modules
 
 ### Tasks
 
@@ -576,7 +489,7 @@ Phase 2 is complete when:
 ---
 
 <a name="phase-3"></a>
-## 🖥️ Phase 3: Unified CLI Interface (Subcommands, Help System + Repos Capabilities)
+## 🖥️ Phase 3: Unified CLI Interface (Subcommands, Help System)
 
 **Duration:** 2-3 weeks
 **Status:** ⏳ Not Started
@@ -585,11 +498,10 @@ Phase 2 is complete when:
 ### Objectives
 
 1. Create unified `bw-admin` CLI tool
-2. Implement all command categories (including repos capabilities)
+2. Implement all command categories
 3. Design consistent command structure
 4. Build help system and documentation
-5. Support multiple output formats (including SIEM formats from repos)
-6. **NEW:** Add command groups for repos capabilities (backup, deploy, clients, ansible)
+5. Support multiple output formats
 
 ### Tasks
 
@@ -1898,6 +1810,7 @@ Week:    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0 | 2025-11-04 | Initial refactor plan created | Claude |
+| 1.2 | 2026-02-25 | Scoped plan to admin-scripts only; removed repos consolidation references | Claude |
 
 ### G. Approval Sign-Off
 
@@ -1938,5 +1851,5 @@ This refactoring plan transforms the admin-scripts repository from a collection 
 ---
 
 **Document Status:** ✅ COMPLETE
-**Last Updated:** 2025-11-04
+**Last Updated:** 2026-02-25
 **Next Review:** End of Phase 1

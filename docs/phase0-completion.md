@@ -45,11 +45,10 @@
 
 **Status:** COMPLETE
 
-- **110+ scripts and tools** analyzed across Bash, PowerShell, Python, Ansible
-- **12 bitwarden-labs repositories** analyzed for mono-repo consolidation
-- **15 functional categories** identified (8 original + 7 from repos)
-- **6+ major overlaps** documented (~30% duplication across scripts and repos)
-- **Dependencies mapped** (bw CLI, jq, APIs, Ansible, Docker)
+- **80+ scripts and tools** analyzed across Bash, PowerShell, Python
+- **8 functional categories** identified
+- **6+ major overlaps** documented (~30% duplication)
+- **Dependencies mapped** (bw CLI, jq, APIs)
 - **Authentication patterns** analyzed (5 different approaches)
 
 **Evidence:** [script-inventory.md](script-inventory.md)
@@ -201,24 +200,20 @@ Environment is functional but some optional components are missing.
 
 | Metric | Value |
 |--------|-------|
-| **Total Scripts & Tools** | 110+ |
-| **Bash Scripts** | 42+ (33 main + 9 repos) |
-| **PowerShell Scripts** | 29 (27 main + 2 repos) |
-| **Python Scripts/Modules** | 40+ (20 main + 20 repos) |
-| **Ansible Playbooks/Roles** | 30+ |
-| **GitHub Actions Workflows** | 3 |
-| **Repos to Consolidate** | 12 bitwarden-labs repositories |
-| **Functional Categories** | 15 (8 original + 7 from repos) |
+| **Total Scripts & Tools** | 80+ |
+| **Bash Scripts** | 33 |
+| **PowerShell Scripts** | 27 |
+| **Python Scripts/Modules** | 20+ |
+| **Functional Categories** | 8 |
 | **Code Duplication** | ~30% |
-| **Lines of Code** | ~25,000+ |
+| **Lines of Code** | ~15,000+ |
 
 ### Priority Consolidation Targets
 
-1. **User confirmation** - 12 implementations → 1 unified (11 scripts + bwconfirm repo)
+1. **User confirmation** - 11 implementations → 1 unified
 2. **Collection creation** - 8 implementations → 1 modular
-3. **Event log downloads** - 6+ implementations → 1 unified (includes event-cleanup and events-public-api-client repos)
+3. **Event log downloads** - 4 implementations → 1 unified
 4. **Org vault exports** - 4 implementations → 1 unified
-5. **Deployment automation** - Multiple repos → unified Ansible (client-deployment, deployment-scripts, nginx-from-source-ansible)
 
 ### Technical Debt
 
@@ -335,37 +330,26 @@ External Services (Bitwarden)
 
 **Weeks 2-4 (Phase 1 Start):**
 
-1. **Deep Analysis of Duplicates (Scripts + Repos)**
-   - Map all 12 user confirmation implementations (11 scripts + bwconfirm repo)
-   - Analyze 12 repos overlap with main scripts
+1. **Deep Analysis of Duplicates**
+   - Map all 11 user confirmation implementations
    - Compare feature sets
    - Identify best-of-breed
 
 2. **Create Consolidation Matrix**
    - For each duplicate: choose canonical approach
-   - Document features to preserve from repos
    - Design unified interfaces
-   - Extract unique capabilities (Ansible, GitHub Actions, SIEM)
 
 3. **Establish Deprecation List**
    - List scripts to be deprecated
-   - List repos to be deprecated
    - Create timeline
    - Plan communication strategy
 
 4. **Define Migration Path**
-   - Old script → New command mapping
-   - Old repo → Mono-repo migration path
+   - Old script → New standardized script mapping
    - Document parameter changes
    - Identify breaking changes
 
-5. **Mono-Repo Consolidation Planning**
-   - Design mono-repo structure for bitwarden-labs
-   - Plan workflow preservation
-   - Plan installation script integration
-   - Create repos deprecation strategy
-
-**Estimated Phase 1 Duration:** 2-3 weeks (extended due to repos analysis)
+**Estimated Phase 1 Duration:** 2 weeks
 
 ---
 
