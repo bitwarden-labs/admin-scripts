@@ -16,8 +16,14 @@
 #                or https://bitwarden.com/help/cli/#download-and-install
 #   - jq installed
 #       Install: sudo apt install jq  /  brew install jq
-#   - Already logged in to the Bitwarden CLI:
+#
+#   ONE-TIME SETUP (run once before using this script):
+#   1. Point the CLI at your Bitwarden server:
+#       bw config server https://your-bitwarden-instance.example.com
+#   2. Log in:
 #       bw login
+#      (The script calls bw unlock at runtime — it does not handle login itself)
+#
 #   - The account running this script must:
 #       * Have access to the target collection (Member role or above)
 #       * Have a Master Password set (required by bw unlock)
