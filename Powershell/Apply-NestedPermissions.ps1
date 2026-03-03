@@ -78,7 +78,7 @@ function Authenticate-Bitwarden {
         exit 1
     }
 
-    Write-Log "🔓 Unlocking Bitwarden vault..."
+    Write-Log "Unlocking Bitwarden vault..."
     $sessionKey = & bw unlock $password --raw
 
     if (!$sessionKey) {
