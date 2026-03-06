@@ -88,41 +88,41 @@ function ConvertFrom-SecureStringPlain {
 
 # Authenticate and unlock Bitwarden vault
 function Authenticate-Bitwarden {
-    Write-Log "🔑 Authenticating with Bitwarden CLI..."
+    Write-Log " Authenticating with Bitwarden CLI..."
     $password = ConvertFrom-SecureStringPlain -SecureString $MASTER_PASSWORD
     $loginResult = & bw login $EMAIL $password --raw
 
     if (-not $loginResult) {
-        Write-Log "❌ Failed to authenticate with Bitwarden CLI." "ERROR"
+        Write-Log " Failed to authenticate with Bitwarden CLI." "ERROR"
         exit 1
     }
 
-    Write-Log "🔓 Unlocking Bitwarden vault..."
+    Write-Log " Unlocking Bitwarden vault..."
     $sessionKey = & bw unlock $password --raw
 
     if (-not $sessionKey) {
-        Write-Log "❌ Failed to unlock Bitwarden vault." "ERROR"
+        Write-Log " Failed to unlock Bitwarden vault." "ERROR"
         exit 1
     }
 
-    Write-Log "✅ Successfully unlocked Bitwarden vault."
+    Write-Log " Successfully unlocked Bitwarden vault."
     $env:BW_SESSION = $sessionKey
 }
 
 # Main function
 function Main {
-    Write-Log "🚀 Starting item URI and match value update process..."
+    Write-Log " Starting item URI and match value update process..."
 
     # Authenticate with Bitwarden
     Authenticate-Bitwarden
 
     # Fetch all items for the given organization
-    Write-Log "📦 Fetching items for organization ID: $ORGANIZATION_ID"
+    Write-Log " Fetching items for organization ID: $ORGANIZATION_ID"
     $itemsJson = & bw list items --organizationid $ORGANIZATION_ID --session $env:BW_SESSION
     $items = $itemsJson | ConvertFrom-Json
 
     if (-not $items) {
-        Write-Log "❌ No items returned or failed to fetch items." "ERROR"
+        Write-Log " No items returned or failed to fetch items." "ERROR"
         exit 1
     }
 
@@ -157,11 +157,11 @@ function Main {
             & bw edit item $item.id --session $env:BW_SESSION --quiet $encodedItem | Out-Null
             Write-Log "$($item.name) updated with URI=$URI and MATCH=$MATCH"
         } catch {
-            Write-Log "❌ Failed to update item: $($item.name) - $_" "ERROR"
+            Write-Log " Failed to update item: $($item.name) - $_" "ERROR"
         }
     }
 
-    Write-Log "🎉 All applicable items have been updated with the specified URI and match value."
+    Write-Log " All applicable items have been updated with the specified URI and match value."
 }
 
 # Execute main

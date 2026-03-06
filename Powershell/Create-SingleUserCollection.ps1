@@ -66,13 +66,13 @@ $secureStringPath = './secureString.txt'
 if (Test-Path $secureStringPath) {
     # Load encrypted master password from file
     $MASTER_PASSWORD = Get-Content $secureStringPath | ConvertTo-SecureString
-    Write-Host " Loaded master password from secureString.txt" -ForegroundColor Green
+    Write-Host " Loaded master password from secureString.txt" -ForegroundColor Green
 } else {
     # Prompt for the master password and save it as SecureString to file
     Write-Host "Please enter your master password:" -ForegroundColor Yellow
     $MASTER_PASSWORD = Read-Host -AsSecureString
     $MASTER_PASSWORD | ConvertFrom-SecureString | Out-File $secureStringPath
-    Write-Host " Master password saved to secureString.txt for future use." -ForegroundColor Green
+    Write-Host " Master password saved to secureString.txt for future use." -ForegroundColor Green
 }
 
 # Convert SecureString to PlainText
@@ -95,27 +95,27 @@ function Initialize-BitwardenCLI {
         [SecureString]$master_password
     )
 
-    Write-Host '🔧 Configuring Bitwarden CLI...'
+    Write-Host ' Configuring Bitwarden CLI...'
     & $BW_EXEC logout | Out-Null  # Log out to avoid conflicts with existing sessions
     & $BW_EXEC config server $vault_uri
 
     $plainTextPassword = Convert-SecureStringToPlainText -secureString $master_password
-    Write-Host "🔐 Attempting login for user: $user_email" -ForegroundColor Yellow
+    Write-Host " Attempting login for user: $user_email" -ForegroundColor Yellow
 
     # Try to log in
     $loginOutput = & $BW_EXEC login $user_email $plainTextPassword
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Failed to login. Error: $loginOutput" -ForegroundColor Red
+        Write-Host " Failed to login. Error: $loginOutput" -ForegroundColor Red
         exit 1
     } else {
-        Write-Host "✅ Successfully logged in as $user_email" -ForegroundColor Green
+        Write-Host " Successfully logged in as $user_email" -ForegroundColor Green
     }
 
     # Attempt to unlock and set session key
-    Write-Host ' Unlocking the vault...'
+    Write-Host ' Unlocking the vault...'
     $session_key = & $BW_EXEC unlock $plainTextPassword --raw
     if (!$session_key) {
-        Write-Host '❌ Failed to unlock Bitwarden CLI with the master password.' -ForegroundColor Red
+        Write-Host ' Failed to unlock Bitwarden CLI with the master password.' -ForegroundColor Red
         exit 1
     }
 
@@ -126,16 +126,16 @@ function Initialize-BitwardenCLI {
     for ($i = 0; $i -lt 5; $i++) {
         $bwStatus = & $BW_EXEC status | ConvertFrom-Json
         if ($bwStatus.status -eq "unlocked") {
-            Write-Host '✅ Bitwarden session is fully unlocked.' -ForegroundColor Green
+            Write-Host ' Bitwarden session is fully unlocked.' -ForegroundColor Green
             return $session_key
         }
         else {
             Start-Sleep -Seconds 2
-            Write-Host "😮 Waiting for Bitwarden session to unlock... Attempt $($i+1)/5" -ForegroundColor Yellow
+            Write-Host " Waiting for Bitwarden session to unlock... Attempt $($i+1)/5" -ForegroundColor Yellow
         }
     }
 
-    Write-Host "❌ Bitwarden session is not unlocked. Please verify your login credentials and two-step login setup." -ForegroundColor Red
+    Write-Host " Bitwarden session is not unlocked. Please verify your login credentials and two-step login setup." -ForegroundColor Red
     exit 1
 }
 
@@ -150,34 +150,34 @@ function Create-UserCollection {
     )
 
     # Retrieve the Bitwarden member ID
-    Write-Host '🧑‍🤝‍🧑 Retrieving organization members...'
+    Write-Host ' Retrieving organization members...'
     $org_members = & $BW_EXEC list org-members --organizationid $organization_id | ConvertFrom-Json
     $member = $org_members | Where-Object { $_.email -eq $user_principal_name }
 
     if (-not $member) {
-        Write-Host "❌ Error: User with email $user_principal_name does not exist in the Bitwarden organization." -ForegroundColor Red
+        Write-Host " Error: User with email $user_principal_name does not exist in the Bitwarden organization." -ForegroundColor Red
         exit 1
     }
 
     # Create a collection template and configure it with the desired values
-    Write-Host "🥤 Creating a collection for user $user_principal_name..."
+    Write-Host " Creating a collection for user $user_principal_name..."
     $template = & $BW_EXEC get template collection --organizationid $organization_id | ConvertFrom-Json
     $template.name = "$parent_collection_name/$name - ($($member.id))"
     $template.organizationId = $organization_id        
 
     $newCollection = $template | ConvertTo-Json | & $BW_EXEC encode | & $BW_EXEC create org-collection --organizationid $organization_id | ConvertFrom-Json
 
-    Write-Host "✅ Collection '$($newCollection.name)' created successfully for user '$user_principal_name'." -ForegroundColor Green
+    Write-Host " Collection '$($newCollection.name)' created successfully for user '$user_principal_name'." -ForegroundColor Green
 }
 
 # Main Script Execution
-Write-Host '⚙️ Initializing Bitwarden CLI session...'
+Write-Host ' Initializing Bitwarden CLI session...'
 $session_key = Initialize-BitwardenCLI -vault_uri $VAULT_URI -user_email $USER_EMAIL -master_password $MASTER_PASSWORD
 if (!$session_key) {
-    Write-Host '❌ Failed to retrieve session key.' -ForegroundColor Red
+    Write-Host ' Failed to retrieve session key.' -ForegroundColor Red
     exit 1
 }
-Write-Host '🔑 Session key retrieved successfully.' -ForegroundColor Green
+Write-Host ' Session key retrieved successfully.' -ForegroundColor Green
 
 # Create collection for specified user
 Create-UserCollection -user_principal_name $USER_PRINCIPAL_NAME -name $NAME -organization_id $ORG_ID -session_key $session_key -parent_collection_name $PARENT_COLLECTION_NAME

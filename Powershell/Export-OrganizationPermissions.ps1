@@ -116,17 +116,17 @@ function Write-Log {
 
 # Extract ORGANIZATION_ID from CLIENT_ID
 $ORGANIZATION_ID = $CLIENT_ID.Split(".")[1]
-Write-Log "🔍 Extracted ORGANIZATION_ID: $ORGANIZATION_ID from CLIENT_ID"
+Write-Log " Extracted ORGANIZATION_ID: $ORGANIZATION_ID from CLIENT_ID"
 
 # Ensure Bitwarden CLI is available
 $BW_EXEC = "./bw"  # Adjust this if needed for your environment
 if (-not (Get-Command $BW_EXEC -ErrorAction SilentlyContinue)) {
-    Write-Log "❌ Bitwarden CLI ($BW_EXEC) is not available. Please install it and try again." "ERROR"
+    Write-Log " Bitwarden CLI ($BW_EXEC) is not available. Please install it and try again." "ERROR"
     exit 1
 }
 
 # Configure the Bitwarden server
-Write-Log "🔧 Configuring Bitwarden CLI with server URI: $SERVER_URI"
+Write-Log " Configuring Bitwarden CLI with server URI: $SERVER_URI"
 & $BW_EXEC config server $SERVER_URI | Out-Null
 
 # Log in with the master password
@@ -134,32 +134,32 @@ $plainTextPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringUni(
     [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MASTER_PASSWORD)
 )
 
-Write-Log "🔑 Logging in to Bitwarden CLI with email: $EMAIL"
+Write-Log " Logging in to Bitwarden CLI with email: $EMAIL"
 $loginResult = & $BW_EXEC login $EMAIL $plainTextPassword --raw
 
 if (-not $loginResult) {
-    Write-Log "❌ Failed to log in. Check your email and password and try again." "ERROR"
+    Write-Log " Failed to log in. Check your email and password and try again." "ERROR"
     exit 1
 }
 
-Write-Log "✅ Successfully logged in."
+Write-Log " Successfully logged in."
 
 # Start the local server
-Write-Log "🚀 Starting Bitwarden local API server on port $PORT..."
+Write-Log " Starting Bitwarden local API server on port $PORT..."
 Start-Process -NoNewWindow -FilePath $BW_EXEC -ArgumentList "serve --port $PORT"
 Start-Sleep -Seconds 5  # Allow time for server to start
 
 # Unlock the vault using the API
-Write-Log "🔓 Unlocking the vault..."
+Write-Log " Unlocking the vault..."
 $unlockResponse = Invoke-RestMethod -Uri "http://localhost:$PORT/unlock" -Method Post -Body (@{ password = $plainTextPassword } | ConvertTo-Json) -ContentType "application/json"
 
 if ($unlockResponse.success -eq $false) {
-    Write-Log "❌ Failed to unlock the vault. Message: $($unlockResponse.message)" "ERROR"
+    Write-Log " Failed to unlock the vault. Message: $($unlockResponse.message)" "ERROR"
     Stop-Process -Name bw
     exit 1
 }
 
-Write-Log "🔓 Vault unlocked successfully."
+Write-Log " Vault unlocked successfully."
 
 # Function to call Vault Management API with added error handling
 function Invoke-VaultManagementAPI {
@@ -182,13 +182,13 @@ function Invoke-VaultManagementAPI {
         }
     }
     catch {
-        Write-Log "❌ API call failed for endpoint: $endpoint" "ERROR"
+        Write-Log " API call failed for endpoint: $endpoint" "ERROR"
         Write-Log "Error details: $_" "ERROR"
     }
 }
 
 # Fetch access token for Public API
-Write-Log "🔑 Fetching access token for Public API..."
+Write-Log " Fetching access token for Public API..."
 $plainTextClientSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringUni(
     [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($CLIENT_SECRET)
 )
@@ -202,12 +202,12 @@ $authResponse = Invoke-RestMethod -Uri "$SERVER_URI/identity/connect/token" -Met
 $access_token = $authResponse.access_token
 
 if (-not $access_token) {
-    Write-Log "❌ Failed to retrieve access token for Public API." "ERROR"
+    Write-Log " Failed to retrieve access token for Public API." "ERROR"
     exit 1
 }
 
 # Fetch all users and groups for the organization from Public API
-Write-Log "📋 Fetching users and groups for organization ID: $ORGANIZATION_ID..."
+Write-Log " Fetching users and groups for organization ID: $ORGANIZATION_ID..."
 
 # Public API headers
 $publicAPIHeaders = @{
@@ -216,7 +216,7 @@ $publicAPIHeaders = @{
 }
 
 # Fetch users from the Public API
-Write-Log "📋 Fetching organization users from Public API..."
+Write-Log " Fetching organization users from Public API..."
 $usersResponse = Invoke-RestMethod -Uri "$API_URI/public/members" -Headers $publicAPIHeaders -Method Get
 # Create a hashtable to map user IDs to emails and external IDs
 $userDetails = @{}
@@ -228,7 +228,7 @@ foreach ($user in $usersResponse.data) {
 }
 
 # Fetch groups from the Public API
-Write-Log "📋 Fetching organization groups from Public API..."
+Write-Log " Fetching organization groups from Public API..."
 $groupsResponse = Invoke-RestMethod -Uri "$API_URI/public/groups" -Headers $publicAPIHeaders -Method Get
 # Create a hashtable to map group IDs to names and external IDs
 $groupDetails = @{}
@@ -240,7 +240,7 @@ foreach ($group in $groupsResponse.data) {
 }
 
 # Fetch collections from the Public API
-Write-Log "📚 Fetching collections for organization ID: $ORGANIZATION_ID from Public API..."
+Write-Log " Fetching collections for organization ID: $ORGANIZATION_ID from Public API..."
 $collectionsResponse = Invoke-RestMethod -Uri "$API_URI/public/collections" -Headers $publicAPIHeaders -Method Get
 
 # Initialize an array to store permissions data
@@ -262,7 +262,7 @@ foreach ($collection in $collectionsResponse.data) {
                    -PercentComplete $percentComplete
 
     # Retrieve collection details including permissions
-    Write-Log "👥 Fetching permissions for collection: ${collection_id}..."
+    Write-Log " Fetching permissions for collection: ${collection_id}..."
     $collectionDetails = Invoke-VaultManagementAPI -endpoint "object/org-collection/${collection_id}?organizationId=${ORGANIZATION_ID}"
     $collection_name = $collectionDetails.data.name
 
@@ -316,7 +316,7 @@ Write-Progress -Activity "Fetching permissions complete" -Completed
 
 # Output permissions data
 if ($permissionsData.Count -eq 0) {
-    Write-Log "⚠️ No permissions data was retrieved." "WARNING"
+    Write-Log " No permissions data was retrieved." "WARNING"
 }
 elseif ($OUTPUT_PATH) {
     # Generate the timestamped filename and export to CSV or JSON in the specified directory
@@ -325,21 +325,21 @@ elseif ($OUTPUT_PATH) {
     $outputFilePath = Join-Path -Path $OUTPUT_PATH -ChildPath $fileName
 
     if ($EXPORT_FORMAT -eq "csv") {
-        Write-Log "💾 Exporting permissions data to $outputFilePath as CSV..."
+        Write-Log " Exporting permissions data to $outputFilePath as CSV..."
         $permissionsData | Export-Csv -Path $outputFilePath -NoTypeInformation -Encoding UTF8
     } elseif ($EXPORT_FORMAT -eq "json") {
-        Write-Log "💾 Exporting permissions data to $outputFilePath as JSON..."
+        Write-Log " Exporting permissions data to $outputFilePath as JSON..."
         $permissionsData | ConvertTo-Json -Depth 4 | Out-File -FilePath $outputFilePath -Encoding UTF8
     }
 
-    Write-Log "✅ Export complete! File saved at $outputFilePath."
+    Write-Log " Export complete! File saved at $outputFilePath."
 } else {
     # Display permissions data in table format if no output file is specified
-    Write-Log "📋 Displaying permissions data in terminal:"
+    Write-Log " Displaying permissions data in terminal:"
     $permissionsData | Format-Table -AutoSize
 }
 
 # Stop the local server
-Write-Log "🛑 Stopping the local API server..."
+Write-Log " Stopping the local API server..."
 Stop-Process -Name bw -Force
-Write-Log "🚀 Server stopped and script completed."
+Write-Log " Server stopped and script completed."

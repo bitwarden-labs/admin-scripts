@@ -22,21 +22,21 @@
 #       bw config server https://your-bitwarden-instance.example.com
 #   2. Log in:
 #       bw login
-#      (The script calls bw unlock at runtime — it does not handle login itself)
+#      (The script calls bw unlock at runtime  it does not handle login itself)
 #
 #   - The account running this script must:
 #       * Have access to the target collection (Member role or above)
 #       * Have a Master Password set (required by bw unlock)
 #         Note: in SSO-enforced organisations only Admin-role accounts
-#         can have a Master Password — a dedicated service account is recommended
+#         can have a Master Password  a dedicated service account is recommended
 #
 # INPUTS (prompted interactively)
 #   Item name       - display name for the vault item and Send (e.g. "Jane Doe - AD Account")
 #   Username        - the username being provisioned
 #   Organization ID - UUID of the Bitwarden organisation
-#                     (Admin Console → Settings → Organisation Info)
+#                     (Admin Console  Settings  Organisation Info)
 #   Collection ID   - UUID of the target collection
-#                     (Admin Console → Vault → Collections → select collection → URL)
+#                     (Admin Console  Vault  Collections  select collection  URL)
 #   Send expiry     - hours until the Send self-deletes (default: 72)
 #
 # OUTPUT
