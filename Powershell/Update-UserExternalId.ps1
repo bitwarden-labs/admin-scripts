@@ -87,29 +87,29 @@ function Update-MemberExternalId {
 
 # Main script logic
 if (-not $CLIENT_ID -or -not $CLIENT_SECRET -or -not $Email -or -not $NewExternalId) {
-    Write-Host " Error: CLIENT_ID, CLIENT_SECRET, Email, and NewExternalId must be provided."
+    Write-Host "Error: CLIENT_ID, CLIENT_SECRET, Email, and NewExternalId must be provided."
     exit 1
 }
 
-Write-Host " Fetching access token..."
+Write-Host "Fetching access token..."
 $access_token = Get-AccessToken -client_id $CLIENT_ID -client_secret $CLIENT_SECRET -vault_uri $VAULT_URI
 
-Write-Host " Fetching organization members..."
+Write-Host "Fetching organization members..."
 $members_response = Get-Members -api_url $API_URL -access_token $access_token
 
 # Find member by email in members list
 $member = $members_response.data | Where-Object { $_.email -eq $Email }
 
 if ($null -eq $member) {
-    Write-Host " Member not found with email $Email."
+    Write-Host "Member not found with email $Email."
     exit 1
 }
 
 $member_id = $member.id
 $member_email = $member.email
 $member_type = [int]$member.type
-Write-Host " Member '$member_email' with type '$member_type' found with ID: $member_id. Updating external ID..."
+Write-Host "Member '$member_email' with type '$member_type' found with ID: $member_id. Updating external ID..."
 
 $update_response = Update-MemberExternalId -api_url $API_URL -access_token $access_token -member_id $member_id -new_external_id $NewExternalId -member_type $member_type
 
-Write-Host " External ID updated successfully for member $Email with ID $member_id."
+Write-Host "External ID updated successfully for member $Email with ID $member_id."
