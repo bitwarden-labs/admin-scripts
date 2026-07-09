@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-    Bulk-removes revoked members from a Bitwarden organization using the Public API,
-    driven by a CSV file of email addresses.
+    Bulk-removes revoked members from a Bitwarden organization using the Public API.
 
 .DESCRIPTION
     Authenticates to the Bitwarden Public API with an Organization API Key, fetches all
-    organization members, then removes every member whose email appears in the supplied
-    CSV file AND whose current status is Revoked (-1).
+    organization members, then removes members whose current status is Revoked (-1).
+
+    You choose which revoked members to remove:
+      * No -Email and no -CsvPath  -> removes ALL revoked members.
+      * -Email a@x.com,b@x.com     -> removes only those addresses (ad-hoc runs).
+      * -CsvPath .\revoked.csv     -> removes the addresses listed in the CSV (bulk).
+    -Email and -CsvPath can be combined; their addresses are merged.
 
     IMPORTANT - what "remove" means here:
         DELETE /public/members/{id} permanently removes the member from the ORGANIZATION.
@@ -19,8 +23,8 @@
     menu only offers "Restore access".
 
     A -WhatIf switch performs a dry run that lists what WOULD be removed without making
-    any DELETE calls. Only members whose CURRENT status is Revoked are ever removed, so a
-    stray non-revoked address in the CSV is skipped rather than deleted.
+    any DELETE calls. In every mode only members whose CURRENT status is Revoked are
+    removed, so a stray non-revoked address is skipped rather than deleted.
 
 .PARAMETER ClientId
     Organization API Key client_id (prefix "organization."). From the Admin Console:
@@ -29,9 +33,13 @@
 .PARAMETER ClientSecret
     Organization API Key client_secret. Keep this confidential.
 
+.PARAMETER Email
+    One or more email addresses to remove. Optional. Combine with -CsvPath if desired.
+
 .PARAMETER CsvPath
-    Path to a CSV file with a header row. The default email column is "email"; change it
-    with -EmailColumn. Extra columns are ignored.
+    Path to a CSV file with a header row listing addresses to remove. Optional. The
+    default email column is "email"; change it with -EmailColumn. Extra columns are
+    ignored.
 
 .PARAMETER EmailColumn
     Name of the CSV column that holds email addresses. Default: "email".
@@ -46,23 +54,28 @@
     for self-hosted use https://YOUR_DOMAIN/api.
 
 .EXAMPLE
-    # Dry run first - shows what would be removed without touching anything:
-    .\Remove-RevokedMembers.ps1 -ClientId "organization.xxxx" -ClientSecret "SECRET" -CsvPath ".\revoked.csv" -WhatIf
+    # Dry run - remove ALL revoked members (shows what would happen, deletes nothing):
+    .\Remove-RevokedMembers.ps1 -ClientId "organization.xxxx" -ClientSecret "SECRET" -WhatIf
 
 .EXAMPLE
-    # Live run:
+    # Remove a specific few:
+    .\Remove-RevokedMembers.ps1 -ClientId "organization.xxxx" -ClientSecret "SECRET" -Email 'a@x.com','b@x.com'
+
+.EXAMPLE
+    # Remove everyone listed in a CSV:
     .\Remove-RevokedMembers.ps1 -ClientId "organization.xxxx" -ClientSecret "SECRET" -CsvPath ".\revoked.csv"
 
 .NOTES
     Requires: PowerShell 7+, a Bitwarden Enterprise plan, and an Organization API Key.
-    Always test on a small batch with -WhatIf before running against your full list.
+    Always test on a small batch with -WhatIf before running for real.
     Docs: https://bitwarden.com/help/public-api/
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)][string]$ClientId,
     [Parameter(Mandatory)][string]$ClientSecret,
-    [Parameter(Mandatory)][string]$CsvPath,
+    [string[]]$Email,
+    [string]$CsvPath,
     [string]$EmailColumn = 'email',
     [string]$IdentityUrl = 'https://identity.bitwarden.com/connect/token',
     [string]$ApiBaseUrl  = 'https://api.bitwarden.com'
@@ -75,17 +88,32 @@ $ErrorActionPreference = 'Stop'
 #   Revoked = -1, Invited = 0, Accepted = 1, Confirmed = 2
 $StatusRevoked = -1
 
-# --- Validate the CSV -------------------------------------------------------
-if (-not (Test-Path -LiteralPath $CsvPath)) { Write-Error "CSV not found: $CsvPath"; exit 1 }
-$csvRows = Import-Csv -Path $CsvPath
-if ($csvRows.Count -eq 0) { Write-Warning 'CSV is empty. Nothing to do.'; exit 0 }
-if ($csvRows[0].PSObject.Properties.Name -notcontains $EmailColumn) {
-    Write-Error ("CSV has no '{0}' column. Columns found: {1}. Use -EmailColumn to override." -f `
-        $EmailColumn, ($csvRows[0].PSObject.Properties.Name -join ', ')); exit 1
+# --- Build the set of target emails from -Email and/or -CsvPath --------------
+$targetEmails = [System.Collections.Generic.HashSet[string]]::new()
+
+foreach ($e in $Email) {
+    if ($e -and $e.Trim()) { [void]$targetEmails.Add($e.Trim().ToLowerInvariant()) }
 }
-$csvEmails = $csvRows.$EmailColumn | Where-Object { $_ -and $_.Trim() } |
-             ForEach-Object { $_.Trim().ToLowerInvariant() } | Sort-Object -Unique
-Write-Host "CSV loaded: $($csvEmails.Count) unique email(s) to process." -ForegroundColor Cyan
+
+if ($CsvPath) {
+    if (-not (Test-Path -LiteralPath $CsvPath)) { Write-Error "CSV not found: $CsvPath"; exit 1 }
+    $csvRows = Import-Csv -Path $CsvPath
+    if ($csvRows.Count -gt 0 -and $csvRows[0].PSObject.Properties.Name -notcontains $EmailColumn) {
+        Write-Error ("CSV has no '{0}' column. Columns found: {1}. Use -EmailColumn to override." -f `
+            $EmailColumn, ($csvRows[0].PSObject.Properties.Name -join ', ')); exit 1
+    }
+    foreach ($row in $csvRows) {
+        $v = $row.$EmailColumn
+        if ($v -and $v.Trim()) { [void]$targetEmails.Add($v.Trim().ToLowerInvariant()) }
+    }
+}
+
+$removeAll = ($targetEmails.Count -eq 0)
+if ($removeAll) {
+    Write-Host 'No -Email or -CsvPath given: targeting ALL revoked members.' -ForegroundColor Cyan
+} else {
+    Write-Host "Targeting $($targetEmails.Count) specified email(s)." -ForegroundColor Cyan
+}
 
 # --- Authenticate -----------------------------------------------------------
 function Get-BearerToken {
@@ -113,32 +141,50 @@ function Invoke-ApiWithRetry {
     }
 }
 
-# --- Fetch members and build email -> member lookup -------------------------
+# --- Fetch members ----------------------------------------------------------
 Write-Host 'Fetching organization members...'
 $members = (Invoke-ApiWithRetry -Method Get -Uri "$ApiBaseUrl/public/members" -Headers $headers).data
 Write-Host "Members returned by API: $($members.Count)"
+
 $byEmail = @{}
 foreach ($m in $members) { $byEmail[$m.email.Trim().ToLowerInvariant()] = $m }
 
-# --- Process ----------------------------------------------------------------
 $removed = 0; $skipped = 0; $missing = 0; $errors = 0
-foreach ($email in $csvEmails) {
-    if (-not $byEmail.ContainsKey($email)) {
-        Write-Warning "SKIP  not found in org: $email"; $missing++; continue
-    }
-    $m = $byEmail[$email]
-    if ([int]$m.status -ne $StatusRevoked) {
-        Write-Host "SKIP  $email - current status is $($m.status), not Revoked. Not touching." -ForegroundColor Yellow
-        $skipped++; continue
-    }
-    if ($PSCmdlet.ShouldProcess($email, "DELETE /public/members/$($m.id)")) {
+
+function Remove-OneMember {
+    param($Member)
+    $email = $Member.email
+    if ($PSCmdlet.ShouldProcess($email, "DELETE /public/members/$($Member.id)")) {
         try {
-            Invoke-ApiWithRetry -Method Delete -Uri "$ApiBaseUrl/public/members/$($m.id)" -Headers $headers | Out-Null
-            Write-Host "REMOVED  $email (member id: $($m.id))" -ForegroundColor Green; $removed++
+            Invoke-ApiWithRetry -Method Delete -Uri "$ApiBaseUrl/public/members/$($Member.id)" -Headers $headers | Out-Null
+            Write-Host "REMOVED  $email (member id: $($Member.id))" -ForegroundColor Green
+            $script:removed++
         }
         catch {
-            Write-Warning "ERROR  $email (member id: $($m.id)) - $_"; $errors++
+            Write-Warning "ERROR  $email (member id: $($Member.id)) - $_"; $script:errors++
         }
+    }
+}
+
+# --- Act --------------------------------------------------------------------
+if ($removeAll) {
+    $revoked = @($members | Where-Object { [int]$_.status -eq $StatusRevoked })
+    Write-Host "Revoked members found: $($revoked.Count)"
+    foreach ($m in $revoked) { Remove-OneMember -Member $m }
+}
+else {
+    # NOTE: loop variable is $targetEmail, not $email - the latter would collide with
+    # the $Email parameter (PowerShell variable names are case-insensitive).
+    foreach ($targetEmail in $targetEmails) {
+        if (-not $byEmail.ContainsKey($targetEmail)) {
+            Write-Warning "SKIP  not found in org: $targetEmail"; $missing++; continue
+        }
+        $m = $byEmail[$targetEmail]
+        if ([int]$m.status -ne $StatusRevoked) {
+            Write-Host "SKIP  $targetEmail - current status is $($m.status), not Revoked. Not touching." -ForegroundColor Yellow
+            $skipped++; continue
+        }
+        Remove-OneMember -Member $m
     }
 }
 
@@ -148,6 +194,5 @@ Write-Host "Removed (from org)    : $removed"
 Write-Host "Skipped (not revoked) : $skipped"
 Write-Host "Not found in org      : $missing"
 Write-Host "Errors                : $errors"
-Write-Host "CSV emails total      : $($csvEmails.Count)"
 Write-Host "========================================" -ForegroundColor Cyan
 if ($WhatIfPreference) { Write-Host 'Dry run only. Re-run without -WhatIf to execute removals.' -ForegroundColor Yellow }
