@@ -371,7 +371,10 @@ class DelineaToBitwardenConverter:
         Returns: 1=login, 2=note, 3=card, 4=identity, 5=sshKey
 
         Type Mappings:
-        - SSH Keys (type 5): Items with private-key/public-key fields
+        - SSH Keys (type 5): Items with a non-empty private-key or public-key value.
+          Entries that reference the SSH Key template but have empty key values
+          (e.g. metadata-only records that hold just a passphrase) fall through
+          to Secure Note so the remaining fields survive as custom fields.
         - Cards (type 3): Credit Card template OR card-number field
         - Identities (type 4): Contact template OR address/name fields OR SSN fields
         - Logins (type 1): Database/Server credentials (host/server fields) OR username/password/url
@@ -390,8 +393,8 @@ class DelineaToBitwardenConverter:
             return 3  # Card
 
         # Field-based detection
-        # SSH Keys - check for private-key/public-key fields
-        if 'private-key' in items or 'public-key' in items:
+        # SSH Keys - require an actual key value, not just the slug's presence
+        if self.has_field_value(items, 'private-key') or self.has_field_value(items, 'public-key'):
             return 5  # SSH Key
         # Credit Card
         elif 'card-number' in items:
@@ -410,6 +413,13 @@ class DelineaToBitwardenConverter:
             return 1  # Login
         else:
             return 2  # Default to Secure Note
+
+    def has_field_value(self, items: Dict, key: str) -> bool:
+        """Return True only if `key` exists and has a non-empty value."""
+        field = items.get(key)
+        if not isinstance(field, dict):
+            return False
+        return str(field.get('value', '')).strip() != ''
 
     def pop_field(self, items: Dict, key: str) -> tuple:
         """Remove and return a field from items dict"""
