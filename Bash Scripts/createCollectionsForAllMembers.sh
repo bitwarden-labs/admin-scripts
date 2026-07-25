@@ -56,8 +56,8 @@ decrypt_secret() {
 }
 
 # Check dependencies
-for cmd in jq curl bw openssl; do
-  command -v "$cmd" >/dev/null 2>&1 || handle_error "$cmd is required but not installed."
+for cmd in jq bw openssl; do
+  command -v "$cmd" > /dev/null 2>&1 || handle_error "$cmd is required but not installed."
 done
 
 # Ensure BITWARDEN_PASS is set
@@ -68,14 +68,13 @@ fi
 # Decrypt Credentials
 password=$(decrypt_secret "$secure_password_file")
 
-# Unlock Bitwarden CLI session
-if ! bw status | grep -q "unlocked"; then
-  log "Unlocking Bitwarden CLI..."
-  session_key=$(printf "%s" "$password" | bw unlock --raw 2>/dev/null) || handle_error "Failed to unlock Bitwarden CLI"
-else
-  session_key=$(bw unlock --raw)
-  log "Bitwarden CLI already unlocked."
-fi
+# Unlock Bitwarden CLI session (always supply password; bw unlock is idempotent)
+log "Unlocking Bitwarden CLI..."
+session_key=$(printf "%s" "$password" | bw unlock --raw 2>/dev/null) || handle_error "Failed to unlock Bitwarden CLI"
+
+# Sync to ensure CLI cache is up to date before fetching members/collections
+log "Syncing Bitwarden vault..."
+bw --session "$session_key" sync > /dev/null 2>&1 || handle_error "Failed to sync Bitwarden vault"
 
 # Check if Parent Collection Exists & Get ID
 log "Checking if parent collection '$parent_collection_name' exists..."
@@ -101,45 +100,53 @@ if [[ -z "$org_members" ]]; then
   handle_error "No active organization members found."
 fi
 
-# Process each member **sequentially**
-echo "$org_members" | jq -c '.' | while read -r member; do
+# Fetch ALL existing collections once before the loop
+log "Fetching existing collections (one-time)..."
+all_collections=$(bw --session "$session_key" list org-collections --organizationid "$organization_id") \
+  || handle_error "Failed to fetch collections list"
+
+created=0
+skipped=0
+
+# Process each member sequentially using process substitution so the loop runs
+# in the current shell
+while read -r member; do
   member_id=$(echo "$member" | jq -r '.id')
   member_name=$(echo "$member" | jq -r '.name // .email')
 
-  # If name is empty, use email prefix
+  # If name contains guest suffixes, strip them; fall back to email prefix
   member_name=$(echo "$member_name" | sed 's/#EXT#.*//; s/@.*//')
 
   # Trim long names (50 char limit)
   member_name=$(echo "$member_name" | cut -c1-50)
 
+  # Guard against a completely empty name after transformations
+  [[ -z "$member_name" ]] && member_name="$member_id"
+
   log "Processing member: $member_name"
 
   collection_name="$parent_collection_name/$member_name"
 
-  # Check if collection already exists
-  existing_collection_id=$(bw --session "$session_key" list org-collections --organizationid "$organization_id" | jq -r ".[] | select(.externalId == \"$member_id\") | .id")
+  # In-memory check against the pre-fetched list
+  existing_collection_id=$(echo "$all_collections" | jq -r ".[] | select(.name == \"$collection_name\") | .id")
 
   if [[ -n "$existing_collection_id" ]]; then
-    log "Updating collection '$existing_collection_id' name to '$collection_name' while preserving all attributes."
-    existing_collection=$(bw --session "$session_key" get org-collection "$existing_collection_id" --organizationid "$organization_id") || handle_error "Failed to retrieve collection data for $collection_name"
-    
-    updated_collection=$(echo "$existing_collection" | jq -c --arg name "$collection_name" '.name = $name')
-    
-    echo "$updated_collection" | bw encode \
-      | bw --session "$session_key" edit org-collection "$existing_collection_id" --organizationid "$organization_id" > /dev/null \
-      || handle_error "Failed to update collection $collection_name"
-    log "Collection '$collection_name' updated."
-  else
-    log "Creating collection: $collection_name"
-    collection_id=$(bw --session "$session_key" get template org-collection \
-      | jq -c --arg n "$collection_name" --arg c "$organization_id" --arg uid "$member_id" \
-          '.name=$n | .organizationId=$c | .externalId=$uid | .users=[{"id":$uid, "readOnly":false, "hidePasswords":false, "manage":true}]' \
-      | bw encode \
-      | bw --session "$session_key" create org-collection --organizationid "$organization_id" \
-      | jq -r '.id') || handle_error "Failed to create collection for $member_name"
-    log "Created Collection '$collection_name' for member '$member_name'."
+    log "Collection '$collection_name' already exists (ID: $existing_collection_id). Skipping member '$member_name'."
+    ((skipped++))
+    continue
   fi
 
-done
+  log "Creating collection: $collection_name"
+  collection_id=$(bw --session "$session_key" get template org-collection \
+    | jq -c --arg n "$collection_name" --arg c "$organization_id" --arg uid "$member_id" \
+        '.name=$n | .organizationId=$c | .externalId=$uid | .users=[{"id":$uid, "readOnly":false, "hidePasswords":false, "manage":true}]' \
+    | bw encode \
+    | bw --session "$session_key" create org-collection --organizationid "$organization_id" \
+    | jq -r '.id') || handle_error "Failed to create collection for $member_name"
 
-log "Collection creation and user assignment completed!"
+  log "Created Collection '$collection_name' for member '$member_name'."
+  ((created++))
+
+done < <(echo "$org_members" | jq -c '.')
+
+log "Collection processing complete. Created: $created | Skipped (already existed): $skipped."
